@@ -2,6 +2,14 @@ venv
 env
 .env
 .venv
-.roo
+
 .rooignore
-.roomodes
+
+config.py
+requirements.txt
+__pycache__/
+*.pyc
+token.json
+dist/
+build/
+credentials.json
