@@ -19,6 +19,8 @@ tools = [
     assistant_functions.list_tasks,
     assistant_functions.mark_task_complete,
     assistant_functions.delete_task,
+    assistant_functions.create_instant_meeting,
+    assistant_functions.join_next_meeting,
 ]
 
 # Create the model with the tools

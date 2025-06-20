@@ -74,7 +74,7 @@ def parse_datetime_natural(text: str):
 
 def set_reminder(summary: str, start_time: str) -> str:
     """
-    Creates an event on Google Calendar with robust datetime parsing and confirmation.
+    Creates a general event on Google Calendar (not a Google Meet).
     Args:
         summary: The title or description of the event.
         start_time: The start time of the event (natural language, 24-hour, timezone-aware).
@@ -105,6 +105,9 @@ def set_reminder(summary: str, start_time: str) -> str:
 def send_email(to: str, subject: str, body: str) -> str:
     """
     Sends an email from the user's Gmail account.
+    
+    Common triggers: "send an email", "send a message", "write an email", "compose email"
+    Used for: Sending emails to specified recipients. Not for scheduling meetings or creating calendar events.
     """
     creds = get_google_creds()
     service = build("gmail", "v1", credentials=creds)
@@ -118,11 +121,16 @@ def send_email(to: str, subject: str, body: str) -> str:
 
 def list_calendar_events(max_results: int = 10) -> str:
     """
-    Lists upcoming events from the user's primary calendar.
+    Lists all upcoming events from the user's primary calendar.
+    
+    Common triggers: "show my calendar", "list all events", "what's on my schedule", "upcoming events"
+    
     Args:
         max_results: Maximum number of events to return (default: 10)
     Returns:
         String containing formatted event details
+    
+    Note: This function is for general calendar events. For video conferences and meetings, use join_next_meeting() instead.
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)
@@ -152,17 +160,59 @@ def list_calendar_events(max_results: int = 10) -> str:
     
     return "\n".join(output)
 
-def delete_calendar_event(event_id: str) -> str:
+def delete_calendar_event(title_or_id: str) -> str:
     """
-    Deletes an event from Google Calendar by event ID.
+    Deletes an event from Google Calendar by title or event ID.
+    If multiple events match the title, lists them for selection.
+
+    Args:
+        title_or_id: The title or ID of the event to delete
+    Returns:
+        String indicating success, failure, or matching events for selection
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)
+
+    # Try direct ID deletion first
     try:
-        service.events().delete(calendarId="primary", eventId=event_id).execute()
+        service.events().delete(calendarId="primary", eventId=title_or_id).execute()
         return "Event deleted successfully."
-    except Exception as e:
-        return f"Failed to delete event: {e}"
+    except:
+        # If ID deletion fails, search by title
+        try:
+            now = datetime.datetime.utcnow().isoformat() + "Z"
+            future = (datetime.datetime.utcnow() + datetime.timedelta(days=30)).isoformat() + "Z"
+            events_result = service.events().list(
+                calendarId="primary",
+                timeMin=now,
+                timeMax=future,
+                singleEvents=True,
+                orderBy="startTime"
+            ).execute()
+            
+            matching_events = [
+                event for event in events_result.get("items", [])
+                if event.get("summary", "").lower() == title_or_id.lower()
+            ]
+
+            if not matching_events:
+                return f"No events found with title: {title_or_id}"
+            
+            if len(matching_events) == 1:
+                event = matching_events[0]
+                service.events().delete(calendarId="primary", eventId=event["id"]).execute()
+                return f"Event '{title_or_id}' deleted successfully."
+            
+            # Multiple matches found - list them for selection
+            event_list = ["Multiple matching events found:"]
+            for i, event in enumerate(matching_events, 1):
+                start = event["start"].get("dateTime", event["start"].get("date"))
+                event_list.append(f"{i}. {start} - {event['summary']} (ID: {event['id']})")
+            event_list.append("\nPlease delete using a specific event ID.")
+            return "\n".join(event_list)
+
+        except Exception as e:
+            return f"Failed to search/delete events: {e}"
 
 def modify_calendar_event(event_id: str, new_summary: Optional[str] = None, new_time: Optional[str] = None) -> str:
     """
@@ -323,3 +373,122 @@ def delete_task(task_id: str, tasklist_id: str = "@default") -> str:
         return "Task deleted successfully."
     except Exception as e:
         return f"Failed to delete task: {e}"
+
+def create_instant_meeting(title: str = "Instant Meeting", start_time: Optional[str] = None) -> str:
+    """
+    Common triggers: "create a meeting", "schedule a meeting", "set up a video call", "start a video conference",
+    "create a video meeting", "set up a meet", "schedule video call"
+
+    Creates a Google Meet video conference meeting. If start_time is provided, schedules the meeting
+    for that time. Otherwise, creates an instant meeting that can be joined immediately.
+
+    Args:
+        title: Title of the meeting (default: "Instant Meeting")
+        start_time: Optional start time as a string (natural language, 24-hour, timezone-aware).
+                   If None, creates an instant meeting.
+    Returns:
+        String containing the Google Meet link and calendar event details.
+    """
+    creds = get_google_creds()
+    service = build("calendar", "v3", credentials=creds)
+    
+    # Parse start time if provided, otherwise use current time
+    if start_time:
+        dt, is_exact, err = parse_datetime_natural(start_time)
+        if err or dt is None:
+            return f"Could not parse start time: {err or 'Unknown error'}"
+        start_dt = dt
+        # Use the parsed datetime's timezone
+        timezone = get_valid_timezone(dt)
+    else:
+        # For instant meetings, use UTC
+        start_dt = datetime.datetime.now(datetime.timezone.utc)
+        timezone = "UTC"
+    
+    # Set end time 1 hour after start
+    end_dt = start_dt + datetime.timedelta(hours=1)
+    
+    # Check for conflicts
+    if detect_event_conflict(service, start_dt):
+        return "Meeting conflict detected at this time. Please choose another time."
+    
+    # Create event with Google Meet conferencing
+    event = {
+        'summary': title,
+        'start': {
+            'dateTime': start_dt.isoformat(),
+            'timeZone': timezone
+        },
+        'end': {
+            'dateTime': end_dt.isoformat(),
+            'timeZone': timezone
+        },
+        'conferenceData': {
+            'createRequest': {
+                'requestId': f"{title}-{datetime.datetime.utcnow().timestamp()}",
+                'conferenceSolutionKey': {
+                    'type': 'hangoutsMeet'
+                }
+            }
+        }
+    }
+    
+    try:
+        event = service.events().insert(
+            calendarId='primary',
+            body=event,
+            conferenceDataVersion=1
+        ).execute()
+        
+        # Extract the meeting link
+        meet_link = event.get('hangoutLink') or event.get('conferenceData', {}).get('entryPoints', [{}])[0].get('uri')
+        if not meet_link:
+            return "Failed to create meeting link."
+            
+        return f"Meeting created successfully!\nTitle: {title}\nMeet Link: {meet_link}\nCalendar: {event.get('htmlLink')}"
+    except Exception as e:
+        return f"Failed to create meeting: {e}"
+
+def join_next_meeting() -> str:
+    """
+    Finds the next scheduled video conference meetings from your calendar and provides
+    the join links. Use this function to find upcoming meetings you can join.
+    
+    Common triggers: "what's my next meeting", "upcoming meetings", "join next call",
+    "find next video conference", "show my meetings"
+    
+    This function is specifically for finding video conference meetings. For general calendar
+    events, use list_calendar_events() instead.
+    
+    Returns:
+        String containing the upcoming video meetings with their titles, times, and join links.
+    """
+    creds = get_google_creds()
+    service = build("calendar", "v3", credentials=creds)
+    
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
+    try:
+        # Get upcoming calendar events
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=now,
+            maxResults=10,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        
+        events = events_result.get('items', [])
+        
+        # Find all upcoming meetings with video conference links
+        meetings = []
+        for event in events:
+            meet_link = event.get('hangoutLink') or event.get('conferenceData', {}).get('entryPoints', [{}])[0].get('uri')
+            if meet_link:
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                meetings.append(f"• {start} - {event['summary']}\n  Join Link: {meet_link}")
+        
+        if meetings:
+            return "Upcoming video conferences:\n" + "\n\n".join(meetings)
+        return "No upcoming video conferences found in your calendar."
+    except Exception as e:
+        return f"Failed to check for video conferences: {e}"
