@@ -1,5 +1,3 @@
-# main.py
-# type: ignore
 import google.generativeai as genai
 from config import GEMINI_API_KEY
 import assistant_functions

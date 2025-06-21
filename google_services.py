@@ -1,4 +1,3 @@
-# google_services.py
 # type: ignore
 import os.path
 from google.auth.transport.requests import Request

@@ -99,16 +99,33 @@ class AIAssistantGUI(ctk.CTk):
             )
             btn.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
 
-        # Create main chat area
-        self.chat_frame = ctk.CTkFrame(self)
-        self.chat_frame.grid(row=0, column=1, padx=10, pady=(10, 0), sticky="nsew")
-        self.chat_frame.grid_columnconfigure(0, weight=1)
-        self.chat_frame.grid_rowconfigure(0, weight=1)
+        # Create tabbed interface
+        self.tab_view = ctk.CTkTabview(self)
+        self.tab_view.grid(row=0, column=1, padx=10, pady=(10, 0), sticky="nsew")
+        self.tab_view.grid_columnconfigure(0, weight=1)
+        self.tab_view.grid_rowconfigure(0, weight=1)
 
-        # Create chat display
-        self.chat_display = ctk.CTkTextbox(self.chat_frame, wrap="word")
-        self.chat_display.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        self.chat_display.configure(state="disabled")
+        # Add tabs
+        self.google_tab = self.tab_view.add("Google Suite")
+        self.research_tab = self.tab_view.add("Market Research")
+
+        # Configure tabs grid
+        self.google_tab.grid_columnconfigure(0, weight=1)
+        self.google_tab.grid_rowconfigure(0, weight=1)
+        self.research_tab.grid_columnconfigure(0, weight=1)
+        self.research_tab.grid_rowconfigure(0, weight=1)
+
+        # Create chat displays for each tab
+        self.google_chat = ctk.CTkTextbox(self.google_tab, wrap="word")
+        self.google_chat.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.google_chat.configure(state="disabled")
+
+        self.research_chat = ctk.CTkTextbox(self.research_tab, wrap="word")
+        self.research_chat.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.research_chat.configure(state="disabled")
+
+        # Set current chat display reference
+        self.current_chat = self.google_chat
 
         # Create input frame
         self.input_frame = ctk.CTkFrame(self)
@@ -143,20 +160,33 @@ class AIAssistantGUI(ctk.CTk):
 
         # Display welcome message
         self.append_to_chat("Assistant", "Welcome! I am your personal AI Assistant. How can I help you today?")
+        
+        # Set up tab change handler
+        self.tab_view.configure(command=self.on_tab_changed)
+
+    def on_tab_changed(self):
+        """Handles the event when the tab is changed."""
+        selected_tab = self.tab_view.get()
+        if selected_tab == "Chat":
+            self.current_chat = self.chat_frame.chat_display
+        elif selected_tab == "Market Research":
+            self.current_chat = self.market_research_frame.chat_display
 
     def append_to_chat(self, sender, message):
-        # Update main chat display
-        self.chat_display.configure(state="normal")
-        self.chat_display.insert("end", f"{sender}: {message}\n\n")
-        self.chat_display.configure(state="disabled")
-        self.chat_display.see("end")
+        """Appends a message to the current chat display."""
+        # Update current chat display
+        if self.current_chat:
+            self.current_chat.configure(state="normal")
+            self.current_chat.insert("end", f"{sender}: {message}\n\n")
+            self.current_chat.configure(state="disabled")
+            self.current_chat.see("end")
         
         # Update history list (keeping last 5 interactions)
         self.history_list.configure(state="normal")
         self.history_list.delete("1.0", "end")  # Clear existing content
         
-        # Get last 10 lines from chat display
-        chat_content = self.chat_display.get("1.0", "end").strip().split("\n\n")
+        # Get last 10 lines from current chat display
+        chat_content = self.current_chat.get("1.0", "end").strip().split("\n\n")
         recent_history = chat_content[-5:] if len(chat_content) > 5 else chat_content
         
         if len(recent_history) > 0:
