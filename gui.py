@@ -1,3 +1,4 @@
+# type: ignore
 import customtkinter as ctk
 import tkinter as tk
 from typing import List, Callable
@@ -15,7 +16,6 @@ class AIAssistantGUI(ctk.CTk):
             tools: List of callable functions that the assistant can use
         """
         super().__init__()
-        genai.configure(api_key=GEMINI_API_KEY) # Configure the API key # type: ignore
         self.tools = tools  # Store tools as instance variable
 
         # Configure window
@@ -135,7 +135,7 @@ class AIAssistantGUI(ctk.CTk):
         self.send_button.grid(row=0, column=1, padx=(5, 10), pady=10)
 
         # Initialize AI model
-        self.model = genai.GenerativeModel( # type: ignore
+        self.model = genai.GenerativeModel(
             model_name='gemini-2.5-flash',
             tools=tools
         )
@@ -324,4 +324,5 @@ class AIAssistantGUI(ctk.CTk):
         # Force proper layering
         dialog.lift()
         button_frame.lift()
+        submit_btn.lift()
         submit_btn.lift()
