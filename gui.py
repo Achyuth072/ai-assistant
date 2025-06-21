@@ -1,9 +1,9 @@
-# type: ignore
+
 import customtkinter as ctk
 import tkinter as tk
 from typing import List, Callable
 from config import GEMINI_API_KEY
-import google.generativeai as genai
+from google.generativeai.generative_models import GenerativeModel
 import assistant_functions
 
 class AIAssistantGUI(ctk.CTk):
@@ -132,7 +132,7 @@ class AIAssistantGUI(ctk.CTk):
         self.send_button.grid(row=0, column=1, padx=(5, 10), pady=10)
 
         # Initialize AI model
-        self.model = genai.GenerativeModel(
+        self.model = GenerativeModel(
             model_name='gemini-2.5-flash',
             tools=tools
         )
@@ -170,18 +170,43 @@ class AIAssistantGUI(ctk.CTk):
         if not user_input:
             return
 
-        # Clear input field
+        # Clear input field and disable it while processing
         self.input_field.delete(0, "end")
-
+        self.input_field.configure(state="disabled")
+        self.send_button.configure(state="disabled")
+        
         # Display user message
         self.append_to_chat("You", user_input)
-
-        # Get AI response
+        
+        # Show loading indicator
+        self.append_to_chat("Assistant", "Thinking...")
+        
+        # Start async response handling
+        self.after(50, lambda: self.get_ai_response(user_input))
+    
+    def get_ai_response(self, user_input):
         try:
+            # Get AI response in a non-blocking way
             response = self.chat.send_message(user_input)
+            
+            # Remove loading indicator and show response
+            self.current_chat.configure(state="normal")
+            self.current_chat.delete("end-3l", "end-1l")  # Remove "Thinking..." line
+            self.current_chat.configure(state="disabled")
+            
             self.append_to_chat("Assistant", response.text)
         except Exception as e:
+            # Remove loading indicator and show error
+            self.current_chat.configure(state="normal")
+            self.current_chat.delete("end-3l", "end-1l")  # Remove "Thinking..." line
+            self.current_chat.configure(state="disabled")
+            
             self.append_to_chat("System", f"Error: {str(e)}")
+        finally:
+            # Re-enable input controls
+            self.input_field.configure(state="normal")
+            self.send_button.configure(state="normal")
+            self.input_field.focus()
 
     def toggle_appearance_mode(self):
         current_mode = ctk.get_appearance_mode()
