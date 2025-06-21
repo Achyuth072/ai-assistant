@@ -354,6 +354,50 @@ def get_unread_emails(max_results: int = 5) -> str:
     """
     return search_emails(query="is:unread", max_results=max_results)
 from typing import Optional
+def get_email_metadata(query: str, max_results=1) -> list:
+    """Fetch email metadata matching query"""
+    creds = get_google_creds()
+    service = build("gmail", "v1", credentials=creds)
+    
+    results = service.users().messages().list(
+        userId="me", 
+        q=query, 
+        maxResults=max_results
+    ).execute()
+    
+    emails = []
+    for msg in results.get("messages", []):
+        msg_data = service.users().messages().get(
+            userId="me", 
+            id=msg["id"]
+        ).execute()
+        
+        headers = {h["name"]: h["value"] for h in msg_data["payload"]["headers"]}
+        emails.append({
+            "id": msg["id"],
+            "subject": headers.get("Subject", "No Subject"),
+            "sender": headers.get("From", "Unknown Sender")
+        })
+    
+    return emails
+
+def summarize_latest_unread_email() -> str:
+    """Summarizes the most recent unread email"""
+    emails = get_email_metadata("is:unread", 1)
+    if not emails:
+        return "No unread emails found"
+    email = emails[0]
+    summary = summarize_email_by_id(email["id"])
+    return f"Latest Unread Email Summary:\nFrom: {email['sender']}\nSubject: {email['subject']}\n{summary}"
+
+def summarize_email_by_query(query: str) -> str:
+    """Summarizes the first email matching search query"""
+    emails = get_email_metadata(query, 1)
+    if not emails:
+        return f"No emails found matching: {query}"
+    email = emails[0]
+    summary = summarize_email_by_id(email["id"])
+    return f"Email Summary for '{query}':\nFrom: {email['sender']}\nSubject: {email['subject']}\n{summary}"
 from google_services import generate_gemini_summary
 
 def summarize_email_by_id(email_id: str) -> str:

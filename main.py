@@ -13,6 +13,8 @@ genai.configure(api_key=GEMINI_API_KEY)  # type: ignore
 tools = [
     assistant_functions.set_reminder,
     assistant_functions.send_email,
+    assistant_functions.summarize_email_by_query,
+    assistant_functions.summarize_email_by_id,
     assistant_functions.list_calendar_events,
     assistant_functions.delete_calendar_event,
     assistant_functions.search_emails,
