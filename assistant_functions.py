@@ -1,4 +1,5 @@
 # assistant_functions.py
+# type: ignore
 from googleapiclient.discovery import build
 from google_services import get_google_creds
 import base64
@@ -40,13 +41,23 @@ def get_valid_timezone(dt):
             pass
     return "UTC"
 
-def parse_datetime_natural(text: str):
+def parse_datetime_natural(text: str) -> tuple[Optional[datetime], bool, Optional[str]]:
+    from datetime import datetime
+    from typing import Optional, Tuple
     """
-    Robust datetime parser using dateparser for natural language, timezones, relative, and AM/PM formats.
+    Enhanced datetime parser using dateparser for natural language, timezones, relative, and AM/PM formats.
     Returns (datetime or None, is_exact, error_message or None)
     Dynamically uses the system's local date and time.
+    
+    Handles cases like:
+    - Explicit times: "3pm tomorrow", "9:30 AM next Monday"
+    - Natural language: "evening", "morning", "noon", "midnight"
+    - Relative times: "in 2 hours", "next week"
+    - Date expressions: "June 21st", "next Tuesday"
     """
-    from datetime import datetime
+    from datetime import datetime, timedelta
+    import dateparser
+    from dateparser.conf import Settings
     try:
         from tzlocal import get_localzone
         local_tz = get_localzone()
@@ -57,19 +68,58 @@ def parse_datetime_natural(text: str):
 
     now_local = datetime.now(local_tz)
 
-    dt = dateparser.parse(
-        text,
-        settings={
-            "RETURN_AS_TIMEZONE_AWARE": True,
-            "PREFER_DATES_FROM": "future",
-            "RELATIVE_BASE": now_local,
-            "TIMEZONE": str(local_tz),
-        },
-    )
+    # Enhanced settings for dateparser using proper Settings type
+    settings = Settings({
+        'RETURN_AS_TIMEZONE_AWARE': True,
+        'PREFER_DATES_FROM': 'future',
+        'RELATIVE_BASE': now_local,
+        'TIMEZONE': str(local_tz),
+        'PREFER_DAY_OF_MONTH': 'first',
+        'STRICT_PARSING': False,
+        'REQUIRE_PARTS': ['hour']  # Ensure time component is present
+    })
+
+    # Handle special time expressions
+    text_lower = text.lower()
+    if "noon" in text_lower:
+        text = text.replace("noon", "12:00")
+    elif "midnight" in text_lower:
+        text = text.replace("midnight", "00:00")
+    elif any(period in text_lower for period in ["morning", "dawn"]):
+        settings["PREFER_MORNING_TO_AFTERNOON"] = True
+
+    # Parse using settings
+    dt = dateparser.parse(text, settings=settings)
+    
     if not dt:
-        return None, False, "Could not parse date/time."
-    # Check if time is approximate (e.g., "evening", "morning")
-    is_exact = any(char.isdigit() for char in text)
+        return None, False, "Could not parse date/time. Please provide a more specific time."
+        
+    # Validate reasonable date range (not too far in future)
+    max_future = now_local + timedelta(days=365)
+    if dt > max_future:
+        return None, False, "Date is too far in the future (maximum 1 year ahead)."
+    
+    # More sophisticated exact time check
+    is_exact = bool(
+        any(char.isdigit() for char in text) and
+        any(marker in text_lower for marker in [
+            ":", "am", "pm", "noon", "midnight",
+            "o'clock", "sharp", "exactly"
+        ])
+    )
+    
+    # For non-exact times, apply reasonable defaults
+    if not is_exact:
+        hour = dt.hour
+        if "morning" in text_lower and hour < 7:
+            dt = dt.replace(hour=9)  # Default morning to 9 AM
+        elif "afternoon" in text_lower and hour < 12:
+            dt = dt.replace(hour=14)  # Default afternoon to 2 PM
+        elif "evening" in text_lower and hour < 17:
+            dt = dt.replace(hour=18)  # Default evening to 6 PM
+        elif "night" in text_lower and hour < 20:
+            dt = dt.replace(hour=20)  # Default night to 8 PM
+            
     return dt, is_exact, None
 
 def set_reminder(summary: str, start_time: str) -> str:
@@ -304,6 +354,47 @@ def get_unread_emails(max_results: int = 5) -> str:
     """
     return search_emails(query="is:unread", max_results=max_results)
 from typing import Optional
+from google_services import generate_gemini_summary
+
+def summarize_email_by_id(email_id: str) -> str:
+    """
+    Summarizes the content of a specific email using Google's Gemini Flash AI.
+    Args:
+        email_id: The ID of the email to summarize.
+    Returns:
+        A string containing the AI-generated summary of the email.
+    """
+    creds = get_google_creds()
+    service = build("gmail", "v1", credentials=creds)
+    
+    try:
+        msg = service.users().messages().get(userId="me", id=email_id, format="full").execute()
+        payload = msg["payload"]
+        
+        # Extract email body
+        body_content = ""
+        if "parts" in payload:
+            for part in payload["parts"]:
+                if part["mimeType"] == "text/plain" and "body" in part and "data" in part["body"]:
+                    body_content = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
+                    break
+                elif part["mimeType"] == "text/html" and "body" in part and "data" in part["body"]:
+                    html_content = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8")
+                    soup = BeautifulSoup(html_content, 'html.parser')
+                    body_content = soup.get_text()
+                    break
+        elif "body" in payload and "data" in payload["body"]:
+            body_content = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8")
+            
+        if not body_content:
+            return "Could not extract readable content from the email."
+            
+        # Generate summary using Gemini Flash
+        summary = generate_gemini_summary(body_content, model_name="gemini-2.5-flash")
+        return f"Email Summary (ID: {email_id}):\n{summary}"
+        
+    except Exception as e:
+        return f"Failed to summarize email {email_id}: {e}"
 
 def add_task(title: str, notes: str = "", due: Optional[str] = None, tasklist_id: str = "@default"):
     """

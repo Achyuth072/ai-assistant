@@ -3,6 +3,7 @@
 import google.generativeai as genai
 from config import GEMINI_API_KEY
 import assistant_functions
+import market_research
 from gui import AIAssistantGUI
 
 # Configure the API key
@@ -22,6 +23,7 @@ tools = [
     assistant_functions.delete_task,
     assistant_functions.create_instant_meeting,
     assistant_functions.join_next_meeting,
+    market_research.conduct_market_research,
 ]
 
 if __name__ == "__main__":
