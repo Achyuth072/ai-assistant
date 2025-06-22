@@ -6,7 +6,6 @@ env
 .rooignore
 
 config.py
-requirements.txt
 __pycache__/
 *.pyc
 token.json
