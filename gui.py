@@ -1,9 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
-from typing import List, Callable
-from config import GEMINI_API_KEY
+from typing import List, Callable, Dict
 from google.generativeai.generative_models import GenerativeModel
 import assistant_functions
+from property_analyzer import PropertyAnalyzer
 
 class AIAssistantGUI(ctk.CTk):
     """Main GUI class for the AI Assistant application."""
@@ -16,6 +16,7 @@ class AIAssistantGUI(ctk.CTk):
         """
         super().__init__()
         self.tools = tools  # Store tools as instance variable
+        self.property_analyzer = PropertyAnalyzer()  # Initialize analyzer
 
         # Configure window
         self.title("AI Assistant")
@@ -98,17 +99,34 @@ class AIAssistantGUI(ctk.CTk):
             )
             btn.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
 
-        # Create single chat display
-        self.chat_display = ctk.CTkTextbox(self, wrap="word")
-        self.chat_display.grid(row=0, column=1, padx=10, pady=(10, 0), sticky="nsew")
+        # Create main content tabview
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.grid(row=0, column=1, padx=10, pady=(10, 0), sticky="nsew", rowspan=2)
+        
+        # Add tabs
+        self.chat_tab = self.tabview.add("💬 Chat")
+        self.analysis_tab = self.tabview.add("📊 Analysis")
+        
+        # Configure tab layouts
+        self.chat_tab.grid_rowconfigure(0, weight=1)
+        self.chat_tab.grid_columnconfigure(0, weight=1)
+        self.analysis_tab.grid_rowconfigure(0, weight=1)
+        self.analysis_tab.grid_columnconfigure(0, weight=1)
+        
+        # Create chat display in chat tab
+        self.chat_display = ctk.CTkTextbox(self.chat_tab, wrap="word")
+        self.chat_display.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         self.chat_display.configure(state="disabled")
 
         # Set current chat display reference
         self.current_chat = self.chat_display
 
-        # Create input frame
-        self.input_frame = ctk.CTkFrame(self)
-        self.input_frame.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+        # Setup analysis interface
+        self._setup_analysis_interface()
+        
+        # Create input frame in chat tab
+        self.input_frame = ctk.CTkFrame(self.chat_tab)
+        self.input_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
         self.input_frame.grid_columnconfigure(0, weight=1)
 
         # Create input field
@@ -348,3 +366,207 @@ class AIAssistantGUI(ctk.CTk):
         button_frame.lift()
         submit_btn.lift()
         submit_btn.lift()
+    
+    def _setup_analysis_interface(self):
+        """Set up the property analysis interface"""
+        # Create main container with tabs for different analysis types
+        self.analysis_tabs = ctk.CTkTabview(self.analysis_tab)
+        self.analysis_tabs.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        # Add analysis type tabs
+        self.full_analysis_tab = self.analysis_tabs.add("Full Analysis")
+        self.rental_analysis_tab = self.analysis_tabs.add("Rental Analysis")
+        self.market_overview_tab = self.analysis_tabs.add("Market Overview")
+        
+        # Setup each analysis tab
+        self._setup_full_analysis_tab()
+        self._setup_rental_analysis_tab()
+        self._setup_market_overview_tab()
+    
+    def _setup_full_analysis_tab(self):
+        """Set up the full property analysis tab"""
+        # Create form frame
+        form_frame = ctk.CTkFrame(self.full_analysis_tab)
+        form_frame.pack(fill="x", padx=20, pady=20)
+        
+        # Address input
+        ctk.CTkLabel(form_frame, text="Property Address", font=("default", 12, "bold")).pack(pady=(10, 0))
+        self.full_address_entry = ctk.CTkEntry(form_frame, placeholder_text="Enter full property address")
+        self.full_address_entry.pack(fill="x", padx=20, pady=5)
+        
+        # Analysis button
+        analyze_btn = ctk.CTkButton(
+            form_frame,
+            text="Analyze Property",
+            command=self._run_full_analysis,
+            height=40,
+            font=("default", 13, "bold")
+        )
+        analyze_btn.pack(pady=15)
+        
+        # Results display
+        self.full_results_text = ctk.CTkTextbox(self.full_analysis_tab, wrap="word")
+        self.full_results_text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+    
+    def _setup_rental_analysis_tab(self):
+        """Set up the rental analysis tab"""
+        # Create form frame
+        form_frame = ctk.CTkFrame(self.rental_analysis_tab)
+        form_frame.pack(fill="x", padx=20, pady=20)
+        
+        # Address input
+        ctk.CTkLabel(form_frame, text="Property Address", font=("default", 12, "bold")).pack(pady=(10, 0))
+        self.rental_address_entry = ctk.CTkEntry(form_frame, placeholder_text="Enter property address")
+        self.rental_address_entry.pack(fill="x", padx=20, pady=5)
+        
+        # Bedrooms input
+        ctk.CTkLabel(form_frame, text="Bedrooms (optional)", font=("default", 12, "bold")).pack(pady=(10, 0))
+        self.bedrooms_entry = ctk.CTkEntry(form_frame, placeholder_text="Number of bedrooms")
+        self.bedrooms_entry.pack(fill="x", padx=20, pady=5)
+        
+        # Bathrooms input
+        ctk.CTkLabel(form_frame, text="Bathrooms (optional)", font=("default", 12, "bold")).pack(pady=(10, 0))
+        self.bathrooms_entry = ctk.CTkEntry(form_frame, placeholder_text="Number of bathrooms")
+        self.bathrooms_entry.pack(fill="x", padx=20, pady=5)
+        
+        # Analysis button
+        analyze_btn = ctk.CTkButton(
+            form_frame,
+            text="Get Rental Analysis",
+            command=self._run_rental_analysis,
+            height=40,
+            font=("default", 13, "bold")
+        )
+        analyze_btn.pack(pady=15)
+        
+        # Results display
+        self.rental_results_text = ctk.CTkTextbox(self.rental_analysis_tab, wrap="word")
+        self.rental_results_text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+    
+    def _setup_market_overview_tab(self):
+        """Set up the market overview tab"""
+        # Create form frame
+        form_frame = ctk.CTkFrame(self.market_overview_tab)
+        form_frame.pack(fill="x", padx=20, pady=20)
+        
+        # Zip code input
+        ctk.CTkLabel(form_frame, text="Zip Code", font=("default", 12, "bold")).pack(pady=(10, 0))
+        self.zip_code_entry = ctk.CTkEntry(form_frame, placeholder_text="Enter 5-digit zip code")
+        self.zip_code_entry.pack(fill="x", padx=20, pady=5)
+        
+        # Analysis button
+        analyze_btn = ctk.CTkButton(
+            form_frame,
+            text="Get Market Overview",
+            command=self._run_market_overview,
+            height=40,
+            font=("default", 13, "bold")
+        )
+        analyze_btn.pack(pady=15)
+        
+        # Results display
+        self.market_results_text = ctk.CTkTextbox(self.market_overview_tab, wrap="word")
+        self.market_results_text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+    
+    def _display_analysis_results(self, textbox: ctk.CTkTextbox, results: Dict):
+        """Helper method to display analysis results in a formatted way"""
+        textbox.configure(state="normal")
+        textbox.delete("1.0", "end")
+        
+        # Format and display results
+        formatted_text = "📊 Analysis Results\n\n"
+        
+        if "property_details" in results:
+            formatted_text += "🏠 Property Details:\n"
+            details = results["property_details"]
+            formatted_text += f"Address: {details.get('address', 'N/A')}\n"
+            formatted_text += f"Beds: {details.get('bedrooms', 'N/A')} | "
+            formatted_text += f"Baths: {details.get('bathrooms', 'N/A')}\n"
+            formatted_text += f"Square Feet: {details.get('squareFeet', 'N/A')}\n\n"
+            
+        if "rental_estimates" in results:
+            formatted_text += "💰 Rental Estimates:\n"
+            rental = results["rental_estimates"]
+            formatted_text += f"Estimated Rent: ${rental.get('estimatedRent', 'N/A')}/month\n"
+            formatted_text += f"Rent Range: ${rental.get('rentRangeLow', 'N/A')} - "
+            formatted_text += f"${rental.get('rentRangeHigh', 'N/A')}\n\n"
+            
+        if "market_statistics" in results:
+            formatted_text += "📈 Market Statistics:\n"
+            stats = results["market_statistics"]
+            formatted_text += f"Median Rent: ${stats.get('medianRent', 'N/A')}\n"
+            formatted_text += f"Vacancy Rate: {stats.get('vacancyRate', 'N/A')}%\n"
+            formatted_text += f"Rent Growth (YoY): {stats.get('rentGrowthYoY', 'N/A')}%\n\n"
+            
+        if "ai_insights" in results:
+            formatted_text += "🤖 AI Insights:\n"
+            formatted_text += results["ai_insights"]
+            
+        textbox.insert("1.0", formatted_text)
+        textbox.configure(state="disabled")
+    
+    def _show_error(self, message: str):
+        """Display error message in a dialog"""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Error")
+        dialog.geometry("300x150")
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        ctk.CTkLabel(
+            dialog,
+            text=message,
+            wraplength=250
+        ).pack(padx=20, pady=20)
+        
+        ctk.CTkButton(
+            dialog,
+            text="OK",
+            command=dialog.destroy
+        ).pack(pady=10)
+    
+    def _run_full_analysis(self):
+        """Run full property analysis"""
+        address = self.full_address_entry.get().strip()
+        if not address:
+            self._show_error("Please enter a property address")
+            return
+            
+        try:
+            results = self.property_analyzer.analyze_property(address)
+            self._display_analysis_results(self.full_results_text, results)
+        except Exception as e:
+            self._show_error(f"Analysis failed: {str(e)}")
+    
+    def _run_rental_analysis(self):
+        """Run rental analysis"""
+        address = self.rental_address_entry.get().strip()
+        if not address:
+            self._show_error("Please enter a property address")
+            return
+            
+        try:
+            bedrooms = int(self.bedrooms_entry.get()) if self.bedrooms_entry.get() else None
+            bathrooms = float(self.bathrooms_entry.get()) if self.bathrooms_entry.get() else None
+            
+            results = self.property_analyzer.get_detailed_rental_analysis(
+                address=address,
+                bedrooms=bedrooms,
+                bathrooms=bathrooms
+            )
+            self._display_analysis_results(self.rental_results_text, results)
+        except Exception as e:
+            self._show_error(f"Rental analysis failed: {str(e)}")
+    
+    def _run_market_overview(self):
+        """Run market overview analysis"""
+        zip_code = self.zip_code_entry.get().strip()
+        if not zip_code or len(zip_code) != 5 or not zip_code.isdigit():
+            self._show_error("Please enter a valid 5-digit zip code")
+            return
+            
+        try:
+            results = self.property_analyzer.get_market_overview(zip_code)
+            self._display_analysis_results(self.market_results_text, results)
+        except Exception as e:
+            self._show_error(f"Market overview failed: {str(e)}")
