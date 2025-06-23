@@ -6,7 +6,8 @@ env
 .rooignore
 
 config.py
-__pycache__/
+__pycache__
+.pytest_cache
 *.pyc
 token.json
 dist/
