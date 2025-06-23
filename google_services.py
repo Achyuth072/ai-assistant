@@ -35,64 +35,158 @@ def get_google_creds():
             token.write(creds.to_json())
     return creds
 
-def generate_gemini_summary(text: str, prompt_type: str = "email", model_name: str = "gemini-2.0-flash") -> str:
-    """Generates a concise summary using Google's Gemini API with a specified model and prompt type.
+def generate_gemini_summary(text: str, prompt_type: str = "email", model_name: str = None,
+                           temperature: float = None) -> str:
+    """Generates a concise summary using Google's Gemini API with dynamic configuration.
     
     Args:
         text (str): The text content to summarize
-        prompt_type (str): Type of summary to generate ('email' or 'market_research')
+        prompt_type (str): Type of summary to generate ('email', 'market_research', or 'property_analysis')
         model_name (str): Name of the Gemini model to use
+        temperature (float, optional): Override default temperature for generation
     """
     import google.generativeai as genai
+    from typing import Dict, Any
     
-    # Initialize Gemini client
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    def clean_and_validate_text(text: str, max_length: int = 30000) -> str:
+        """Clean and validate input text."""
+        # Remove excessive whitespace
+        text = " ".join(text.split())
+        
+        # Truncate if too long
+        if len(text) > max_length:
+            print(f"Warning: Input text truncated from {len(text)} to {max_length} characters")
+            text = text[:max_length] + "..."
+            
+        return text
     
-    # Set up the model
-    # Adjust configuration based on prompt type
-    generation_config = {
-        "temperature": 0.7 if prompt_type == "market_research" else 0.5,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 4096 if prompt_type == "market_research" else 2048,
-    }
+    def get_generation_config(prompt_type: str, temperature: float = None) -> Dict[str, Any]:
+        """Get dynamic generation configuration based on content and type."""
+        configs = {
+            "market_research": {
+                "temperature": temperature if temperature is not None else 0.7,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 4096,
+                "candidate_count": 1
+            },
+            "property_analysis": {
+                "temperature": temperature if temperature is not None else 0.6,
+                "top_p": 0.90,
+                "top_k": 30,
+                "max_output_tokens": 3072,
+                "candidate_count": 1
+            },
+            "email": {
+                "temperature": temperature if temperature is not None else 0.5,
+                "top_p": 0.85,
+                "top_k": 20,
+                "max_output_tokens": 2048,
+                "candidate_count": 1
+            }
+        }
+        return configs.get(prompt_type, configs["email"])
     
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        generation_config=generation_config
-    )
+    # Initialize Gemini client with error handling
+    try:
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize Gemini client: {e}")
+    
+    # Clean and validate input text
+    text = clean_and_validate_text(text)
+    
+    # Set up the model with dynamic configuration
+    generation_config = get_generation_config(prompt_type, temperature)
+    
+    # Select appropriate model based on prompt type
+    if model_name is None:
+        model_name = "gemini-2.0-flash" if prompt_type == "market_research" else "gemini-2.5-flash"
+    
+    try:
+        model = genai.GenerativeModel(
+            model_name=model_name,
+            generation_config=generation_config
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize Gemini model: {e}")
     
     # Generate summary
-    if prompt_type == "market_research":
+    if prompt_type == "property_analysis":
         prompt = f"""
-        Generate a detailed market research summary from the following content. Focus on:
+        Analyze the following property data and generate insights focused on:
         
-        1. Industry Overview:
-           - Current market size and growth projections
-           - Key market segments and their characteristics
-           - Regional market dynamics and trends
+        1. Investment Potential:
+           - Key value drivers and potential appreciation factors
+           - Rental income potential and market positioning
+           - ROI considerations and risk factors
         
-        2. Competitive Analysis:
-           - Major players and their market positions
-           - Key competitive advantages and strategies
-           - Market share distribution (if available)
+        2. Market Context:
+           - Local market trends and comparable properties
+           - Neighborhood characteristics and development
+           - Demographic trends and target renter profile
         
-        3. Consumer Insights:
-           - Target customer demographics and behaviors
-           - Changing consumer preferences
-           - Purchase patterns and decision factors
+        3. Property Assessment:
+           - Overall property condition and features analysis
+           - Notable strengths and potential concerns
+           - Recommended improvements or upgrades
         
-        4. Market Dynamics:
-           - Primary growth drivers and opportunities
-           - Major challenges and potential threats
-           - Regulatory factors or compliance requirements
+        4. Financial Analysis:
+           - Price versus market value assessment
+           - Operating cost considerations (maintenance, HOA, etc.)
+           - Potential revenue optimization strategies
         
-        5. Future Outlook:
-           - Emerging trends and innovations
-           - Growth opportunities and potential risks
-           - Technology impacts and digital transformation
+        Property Data to Analyze:
+        {text}
+        """
+    elif prompt_type == "market_research":
+        prompt = f"""
+        Generate a comprehensive market research summary from the following content.
         
-        Organize the information clearly and support key findings with data when available.
+        Instructions for Analysis:
+        
+        1. Industry Overview (25% weight):
+           - Current market size with specific numbers/ranges
+           - Year-over-year growth rates and projections
+           - Key market segments with size distribution
+           - Regional market dynamics and growth variations
+           - Industry maturity stage assessment
+        
+        2. Competitive Analysis (25% weight):
+           - Top 3-5 players with market share data
+           - Competitive advantage analysis
+           - Recent strategic moves and acquisitions
+           - Barriers to entry evaluation
+           - SWOT analysis of major players
+        
+        3. Consumer Insights (20% weight):
+           - Detailed demographic profiles
+           - Psychographic characteristics
+           - Purchase behavior patterns
+           - Customer journey mapping
+           - Price sensitivity analysis
+        
+        4. Market Dynamics (15% weight):
+           - Key growth drivers and inhibitors
+           - Regulatory impact assessment
+           - Supply chain analysis
+           - Cost structure trends
+           - Technology adoption rates
+        
+        5. Future Outlook (15% weight):
+           - 3-5 year market projections
+           - Emerging technology impacts
+           - Potential disruption factors
+           - Investment opportunity areas
+           - Risk mitigation strategies
+        
+        Output Format Requirements:
+        - Start with an executive summary (2-3 key findings)
+        - Use bullet points for clarity
+        - Include quantitative data where available
+        - Highlight confidence levels for projections
+        - Note any data gaps or uncertainties
+        - End with strategic recommendations
         
         Content to Analyze:
         {text}
@@ -109,5 +203,8 @@ def generate_gemini_summary(text: str, prompt_type: str = "email", model_name: s
         {text}
         """
     
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        raise RuntimeError(f"Failed to generate summary: {e}")
