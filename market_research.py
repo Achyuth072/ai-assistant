@@ -1,4 +1,4 @@
-# type: ignore
+
 from googlesearch import search
 import requests
 from bs4 import BeautifulSoup
@@ -7,7 +7,7 @@ import time
 def _google_search_urls(query: str, num_results: int = 5) -> list[str]:
     """Internal helper to search Google and return top URLs."""
     try:
-        urls = list(search(query, num_results=num_results, sleep_interval=2))
+        urls = [str(result) for result in search(query, num_results=num_results, sleep_interval=2)]
         return urls
     except Exception as e:
         print(f"Google search failed: {e}")
