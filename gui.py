@@ -17,12 +17,15 @@ class AIAssistantGUI(ctk.CTk):
         super().__init__()
         self.tools = tools  # Store tools as instance variable
 
-        # Configure window
+        # Configure window with modern styling
         self.title("AI Assistant")
-        self.geometry("1200x700")  # Larger default size for better layout
+        self.geometry("1200x700")
+        ctk.set_default_color_theme("blue")  # Modern blue theme
+        self.configure(fg_color=("#F5F7FA", "#1E1E1E"))  # Light/Dark background
         
         # Configure grid
         self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=0)  # Sidebar fixed width
         self.grid_columnconfigure(1, weight=1)  # Main content area expands
         
         # Create sidebar
@@ -30,35 +33,58 @@ class AIAssistantGUI(ctk.CTk):
         self.sidebar_width = 250
         self.sidebar_min_width = 50
         # Create sidebar with animation support
-        self.sidebar = ctk.CTkFrame(self, width=self.sidebar_width)
-        self.sidebar.grid(row=0, column=0, rowspan=2, padx=(10, 0), pady=10, sticky="nsew")
+        self.sidebar = ctk.CTkFrame(
+            self,
+            width=self.sidebar_width,
+            fg_color=("white", "#2A2D32"),
+            corner_radius=12
+        )
+        self.sidebar.grid(row=0, column=0, padx=(10, 0), pady=(15, 10), sticky="nsew")  # Added bottom padding
         self.sidebar.grid_propagate(False)  # Maintain width
         
-        # Configure animation parameters
-        self.animation_duration = 100  # milliseconds - faster transition
-        self.animation_steps = 30  # more steps for smoother animation at higher speed
+        # Enhanced animation parameters
+        self.animation_duration = 70  # Slightly longer for smoother feel
+        self.animation_steps = 60  # More steps for smoother animation
         self.animation_running = False
+        self.active_button = None  # Track pressed button for visual feedback
         
-        # Initialize easing function
+        # Initialize easing function for smoother animation
         self.sidebar_ease_func = QuadEaseInOut(start=0, end=1, duration=self.animation_steps)
         
+        # Initialize button interactions
+        self._init_button_interactions()
+
         # Collapse button
         self.collapse_btn = ctk.CTkButton(
             self.sidebar,
             text="◀",
             width=30,
-            command=self.toggle_sidebar
+            height=30,
+            command=self.toggle_sidebar,
+            fg_color="transparent",
+            hover_color=("#EBEBEB", "#3A3F45"),
+            corner_radius=8
         )
         self.collapse_btn.grid(row=0, column=0, padx=(self.sidebar_width-40, 5), pady=5, sticky="e")
         
         # Settings section
-        self.settings_label = ctk.CTkLabel(self.sidebar, text="Settings", font=("default", 16, "bold"))
+        self.settings_label = ctk.CTkLabel(
+            self.sidebar, 
+            text="Settings", 
+            font=("Segoe UI", 16, "bold"),
+            text_color=("#2B7DE9", "#4DABF7")
+        )
         self.settings_label.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
         
         self.appearance_button = ctk.CTkButton(
             self.sidebar,
             text="Toggle Theme",
-            command=self.toggle_appearance_mode
+            command=self.toggle_appearance_mode,
+            fg_color=("#2B7DE9", "#1F5AA8"),
+            hover_color=("#2368CC", "#194A8C"),
+            font=("Segoe UI", 12),
+            height=36,
+            corner_radius=8
         )
         self.appearance_button.grid(row=1, column=0, padx=10, pady=(0, 15), sticky="ew")
         
@@ -102,8 +128,14 @@ class AIAssistantGUI(ctk.CTk):
             btn.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
 
         # Create main content tabview
-        self.tabview = ctk.CTkTabview(self)
-        self.tabview.grid(row=0, column=1, padx=10, pady=(10, 0), sticky="nsew", rowspan=2)
+        self.tabview = ctk.CTkTabview(
+            self,
+            segmented_button_fg_color=("#E9ECEF", "#2D3035"),
+            segmented_button_selected_color=("#2B7DE9", "#1F5AA8"),
+            segmented_button_selected_hover_color=("#2368CC", "#194A8C"),
+            corner_radius=8
+        )
+        self.tabview.grid(row=0, column=1, padx=10, pady=(0, 10), sticky="nsew")  # Added bottom padding
         
         # Add tabs
         self.chat_tab = self.tabview.add("💬 Chat")
@@ -113,7 +145,15 @@ class AIAssistantGUI(ctk.CTk):
         self.chat_tab.grid_columnconfigure(0, weight=1)
         
         # Create chat display in chat tab
-        self.chat_display = ctk.CTkTextbox(self.chat_tab, wrap="word")
+        self.chat_display = ctk.CTkTextbox(
+            self.chat_tab, 
+            wrap="word",
+            fg_color=("white", "#252526"),
+            border_color=("#E9ECEF", "#3A3F45"),
+            border_width=1,
+            corner_radius=8,
+            font=("Segoe UI", 13)
+        )
         self.chat_display.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         self.chat_display.configure(state="disabled")
 
@@ -129,7 +169,12 @@ class AIAssistantGUI(ctk.CTk):
         self.input_field = ctk.CTkEntry(
             self.input_frame,
             placeholder_text="Type your message here...",
-            height=40  # Taller input field
+            height=45,
+            fg_color=("white", "#2D3035"),
+            border_color=("#CED4DA", "#3A3F45"),
+            border_width=1,
+            corner_radius=8,
+            font=("Segoe UI", 13)
         )
         self.input_field.grid(row=0, column=0, padx=(10, 5), pady=10, sticky="ew")
         self.input_field.bind("<Return>", lambda event: self.send_message())
@@ -138,9 +183,13 @@ class AIAssistantGUI(ctk.CTk):
         self.send_button = ctk.CTkButton(
             self.input_frame,
             text="Send",
-            command=self.send_message,
+            command=lambda: self.send_message(),
             width=100,
-            height=40  # Match input field height
+            height=45,
+            fg_color=("#2B7DE9", "#1F5AA8"),
+            hover_color=("#2368CC", "#194A8C"),
+            font=("Segoe UI", 13, "bold"),
+            corner_radius=8
         )
         self.send_button.grid(row=0, column=1, padx=(5, 10), pady=10)
 
@@ -151,8 +200,19 @@ class AIAssistantGUI(ctk.CTk):
         )
         self.chat = self.model.start_chat(enable_automatic_function_calling=True)
 
-        # Display welcome message
-        self.append_to_chat("Assistant", "Welcome! I am your personal AI Assistant. How can I help you today?")
+        # Display welcome message with styled text
+        welcome_msg = """
+        Welcome to your AI Assistant! ✨
+
+        I'm here to help you with:
+        • Answering questions
+        • Running tools and automations
+        • Analyzing data
+        • And much more!
+
+        How can I assist you today?
+        """
+        self.append_to_chat("Assistant", welcome_msg.strip())
         
     def append_to_chat(self, sender, message):
         """Appends a message to the current chat display."""
@@ -191,8 +251,12 @@ class AIAssistantGUI(ctk.CTk):
         # Display user message
         self.append_to_chat("You", user_input)
         
-        # Show loading indicator
-        self.append_to_chat("Assistant", "Thinking...")
+        # Show text-based loading indicator
+        self.loading_dots = 1
+        self.current_chat.configure(state="normal")
+        self.current_chat.insert("end", "Assistant is thinking...")
+        self.current_chat.configure(state="disabled")
+        self._animate_loading()
         
         # Start async response handling
         self.after(50, lambda: self.get_ai_response(user_input))
@@ -204,14 +268,18 @@ class AIAssistantGUI(ctk.CTk):
             
             # Remove loading indicator and show response
             self.current_chat.configure(state="normal")
-            self.current_chat.delete("end-3l", "end-1l")  # Remove "Thinking..." line
+            self.current_chat.delete("end-3l", "end-1l")
+            if hasattr(self, 'loading_dots'):
+                self.current_chat.delete(self.loading_dots)
             self.current_chat.configure(state="disabled")
             
             self.append_to_chat("Assistant", response.text)
         except Exception as e:
             # Remove loading indicator and show error
             self.current_chat.configure(state="normal")
-            self.current_chat.delete("end-3l", "end-1l")  # Remove "Thinking..." line
+            self.current_chat.delete("end-3l", "end-1l")
+            if hasattr(self, 'loading_dots'):
+                self.current_chat.delete(self.loading_dots)
             self.current_chat.configure(state="disabled")
             
             self.append_to_chat("System", f"Error: {str(e)}")
@@ -381,3 +449,48 @@ class AIAssistantGUI(ctk.CTk):
             command=dialog.destroy
         ).pack(pady=10)
     
+    def _init_button_interactions(self):
+        """Initialize button hover and press effects"""
+        self.button_states = {}  # Track button states in a dictionary
+        
+        # Bind global events
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+    
+    def _on_enter(self, event):
+        """Handle mouse enter events for buttons"""
+        widget = event.widget
+        if isinstance(widget, ctk.CTkButton):
+            if widget != self.active_button:
+                self.button_states[id(widget)] = widget.cget("fg_color")
+                widget.configure(fg_color=widget.cget("hover_color"))
+    def _on_leave(self, event):
+        """Handle mouse leave events for buttons"""
+        widget = event.widget
+        if isinstance(widget, ctk.CTkButton):
+            if widget != self.active_button and id(widget) in self.button_states:
+                widget.configure(fg_color=self.button_states[id(widget)])
+    
+    
+    def _reset_button(self):
+        """Reset button appearance after press"""
+        if self.active_button and id(self.active_button) in self.button_states:
+            original_color = self.button_states.get(id(self.active_button))
+            if original_color:
+                self.active_button.configure(fg_color=original_color, hover_color=None)
+            self.active_button = None
+    
+    def _animate_loading(self):
+        """Animate loading dots"""
+        if not hasattr(self, 'loading_dots'):
+            return
+            
+        self.current_chat.configure(state="normal")
+        self.current_chat.delete("end-1l linestart", "end-1c")
+        
+        dots = "." * self.loading_dots
+        self.current_chat.insert("end", f"Assistant is thinking{dots}")
+        
+        self.loading_dots = self.loading_dots + 1 if self.loading_dots < 3 else 1
+        self.current_chat.configure(state="disabled")
+        self.after(500, self._animate_loading)
