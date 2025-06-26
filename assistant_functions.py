@@ -18,11 +18,14 @@ except ImportError:
 
 def get_valid_timezone(dt):
     """
-    Returns a valid IANA timezone string for Google Calendar.
-    Priority:
+    🌍 Timezone Resolver
+    
+    Returns a valid IANA timezone string for Google Calendar, prioritizing:
     1. dt.tzinfo if it's a valid IANA string
     2. System local timezone (tzlocal)
-    3. 'UTC'
+    3. 'UTC' as fallback
+    
+    This ensures your calendar events are always in the correct timezone!
     """
     # Try dt.tzinfo
     if hasattr(dt, "tzinfo") and dt.tzinfo:
@@ -124,17 +127,28 @@ def parse_datetime_natural(text: str) -> tuple[Optional[datetime], bool, Optiona
 
 def set_reminder(summary: str, start_time: str) -> str:
     """
-    Creates a general event on Google Calendar (not a Google Meet).
+    📅 Calendar Event Creator
+    
+    Creates a new event on your Google Calendar with smart scheduling features.
+    
     Args:
-        summary: The title or description of the event.
-        start_time: The start time of the event (natural language, 24-hour, timezone-aware).
+        summary: Event title or description - make it clear and descriptive!
+        start_time: When should it start? Use natural language like:
+                   - "3pm tomorrow"
+                   - "next Monday at 9:30 AM"
+                   - "in 2 hours"
+                   - "June 21st at noon"
+    
+    Returns:
+        A confirmation message with the event link if successful, or a helpful
+        error message if something goes wrong.
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)
     # Parse start_time robustly
     dt, is_exact, err = parse_datetime_natural(start_time)
     if err or dt is None:
-        return f"Could not parse date/time: {err or 'Unknown error'}"
+        return f"❌ Invalid date/time format: {err or 'Unknown error'}. Please try using a more specific time like '3pm tomorrow' or '9:30 AM next Monday'."
     # Confirm with user before adding
     confirmation = f"About to add event '{summary}' at {dt.isoformat()} (Exact: {is_exact}). Proceed? [yes/no]"
     # In production, replace with actual confirmation logic (e.g., prompt user)
@@ -154,10 +168,23 @@ def set_reminder(summary: str, start_time: str) -> str:
 
 def send_email(to: str, subject: str, body: str) -> str:
     """
-    Sends an email from the user's Gmail account.
+    ✉️ Email Sender
     
-    Common triggers: "send an email", "send a message", "write an email", "compose email"
-    Used for: Sending emails to specified recipients. Not for scheduling meetings or creating calendar events.
+    Composes and sends an email directly from your Gmail account.
+    
+    When to use:
+    - ✓ Sending quick messages
+    - ✓ Composing formal emails
+    - ✓ Reaching out to contacts
+    - ✗ Not for scheduling meetings (use create_instant_meeting instead)
+    
+    Args:
+        to: Recipient's email address
+        subject: Clear, concise email subject
+        body: Your message content
+        
+    Returns:
+        Confirmation with message ID when sent successfully
     """
     creds = get_google_creds()
     service = build("gmail", "v1", credentials=creds)
@@ -167,20 +194,27 @@ def send_email(to: str, subject: str, body: str) -> str:
     encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
     create_message = {"raw": encoded_message}
     send_message = service.users().messages().send(userId="me", body=create_message).execute()
-    return f"Success! Message sent with ID: {send_message['id']}"
+    return f"✉️ Message sent successfully! (ID: {send_message['id']})"
 
 def list_calendar_events(max_results: int = 10) -> str:
     """
-    Lists all upcoming events from the user's primary calendar.
+    📅 Calendar Viewer
     
-    Common triggers: "show my calendar", "list all events", "what's on my schedule", "upcoming events"
+    Shows your upcoming schedule in a beautifully formatted list.
+    
+    Perfect for:
+    - 👀 Checking your day's agenda
+    - 📊 Planning your week
+    - 🗓️ Viewing upcoming appointments
     
     Args:
-        max_results: Maximum number of events to return (default: 10)
+        max_results: How many events to show (default: 10)
+                    Set higher for a broader view of your schedule
+                    
     Returns:
-        String containing formatted event details
-    
-    Note: This function is for general calendar events. For video conferences and meetings, use join_next_meeting() instead.
+        A nicely formatted list of your upcoming events with dates and times
+        
+    Note: For video meetings specifically, use join_next_meeting() instead!
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)
@@ -201,24 +235,34 @@ def list_calendar_events(max_results: int = 10) -> str:
     events = events_result.get("items", [])
     
     if not events:
-        return "No upcoming events found."
+        return "📅 No upcoming events found on your calendar."
     
-    output = ["Upcoming events:"]
+    output = ["📅 Upcoming Events", "═══════════════"]
     for event in events:
-        start = event["start"].get("dateTime", event["start"].get("date"))
-        output.append(f"{start} - {event['summary']}")
+        start_dt = parser.parse(event["start"].get("dateTime", event["start"].get("date")))
+        formatted_time = start_dt.strftime("%I:%M %p on %B %d")  # e.g. "2:30 PM on June 21"
+        output.append(f"• {formatted_time}")
+        output.append(f"  └─ {event['summary']}")
     
     return "\n".join(output)
 
 def delete_calendar_event(title_or_id: str) -> str:
     """
-    Deletes an event from Google Calendar by title or event ID.
-    If multiple events match the title, lists them for selection.
-
+    🗑️ Calendar Event Remover
+    
+    Safely removes events from your Google Calendar with smart matching.
+    
+    Features:
+    - 🔍 Find by title or event ID
+    - 📋 Lists multiple matches for you to choose
+    - ✅ Confirms successful deletion
+    
     Args:
-        title_or_id: The title or ID of the event to delete
+        title_or_id: Event to delete (title or ID)
+                    Pro tip: Use the event ID for precise deletion!
+                    
     Returns:
-        String indicating success, failure, or matching events for selection
+        Success message or list of matching events to choose from
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)
@@ -226,7 +270,7 @@ def delete_calendar_event(title_or_id: str) -> str:
     # Try direct ID deletion first
     try:
         service.events().delete(calendarId="primary", eventId=title_or_id).execute()
-        return "Event deleted successfully."
+        return "✅ Event deleted successfully!"
     except:
         # If ID deletion fails, search by title
         try:
@@ -246,15 +290,15 @@ def delete_calendar_event(title_or_id: str) -> str:
             ]
 
             if not matching_events:
-                return f"No events found with title: {title_or_id}"
+                return f"❌ No events found with title: {title_or_id}"
             
             if len(matching_events) == 1:
                 event = matching_events[0]
                 service.events().delete(calendarId="primary", eventId=event["id"]).execute()
-                return f"Event '{title_or_id}' deleted successfully."
+                return f"✅ Event '{title_or_id}' deleted successfully!"
             
             # Multiple matches found - list them for selection
-            event_list = ["Multiple matching events found:"]
+            event_list = ["🔍 Multiple matching events found:", "══════════════════════════"]
             for i, event in enumerate(matching_events, 1):
                 start = event["start"].get("dateTime", event["start"].get("date"))
                 event_list.append(f"{i}. {start} - {event['summary']} (ID: {event['id']})")
@@ -327,9 +371,9 @@ def search_emails(query: str, max_results: int = 5) -> str:
     messages = results.get("messages", [])
     
     if not messages:
-        return f"No emails found matching: {query}"
+        return f"🔍 No emails found matching: {query}"
     
-    output = [f"Emails matching '{query}':"]
+    output = [f"📧 Emails matching '{query}':", "═══════════════════════"]
     for message in messages:
         msg = (
             service.users()
@@ -346,11 +390,17 @@ def search_emails(query: str, max_results: int = 5) -> str:
 
 def get_unread_emails(max_results: int = 5) -> str:
     """
-    Gets unread emails from the user's Gmail account.
+    📫 Unread Email Checker
+    
+    Quickly see what's new in your inbox! Fetches your latest unread emails
+    and presents them in an easy-to-read format.
+    
     Args:
-        max_results: Maximum number of emails to return (default: 5)
+        max_results: Number of unread emails to show (default: 5)
+                    Increase this to see more of your inbox
+                    
     Returns:
-        String containing formatted email details
+        A clean summary of your unread emails with sender and subject info
     """
     return search_emails(query="is:unread", max_results=max_results)
 from typing import Optional
@@ -385,7 +435,7 @@ def summarize_latest_unread_email() -> str:
     """Summarizes the most recent unread email"""
     emails = get_email_metadata("is:unread", 1)
     if not emails:
-        return "No unread emails found"
+        return "📫 Your inbox is all caught up - no unread emails!"
     email = emails[0]
     summary = summarize_email_by_id(email["id"])
     return f"Latest Unread Email Summary:\nFrom: {email['sender']}\nSubject: {email['subject']}\n{summary}"
@@ -402,11 +452,22 @@ from google_services import generate_gemini_summary
 
 def summarize_email_by_id(email_id: str) -> str:
     """
-    Summarizes the content of a specific email using Google's Gemini Flash AI.
+    📧 Smart Email Summarizer
+    
+    Let AI do the reading for you! Uses Google's Gemini Flash AI to create
+    quick, intelligent summaries of your emails.
+    
+    Features:
+    - 🤖 AI-powered understanding
+    - 📝 Key points extraction
+    - ⚡ Fast processing
+    - 📊 Smart formatting
+    
     Args:
-        email_id: The ID of the email to summarize.
+        email_id: The unique ID of the email to summarize
+        
     Returns:
-        A string containing the AI-generated summary of the email.
+        A concise, well-structured summary of the email's content
     """
     creds = get_google_creds()
     service = build("gmail", "v1", credentials=creds)
@@ -431,7 +492,7 @@ def summarize_email_by_id(email_id: str) -> str:
             body_content = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8")
             
         if not body_content:
-            return "Could not extract readable content from the email."
+            return "❌ Could not extract readable content from the email. The email may be empty or in an unsupported format."
             
         # Generate summary using Gemini Flash
         summary = generate_gemini_summary(body_content, model_name="gemini-2.5-flash")
@@ -511,18 +572,34 @@ def delete_task(task_id: str, tasklist_id: str = "@default") -> str:
 
 def create_instant_meeting(title: str = "Instant Meeting", start_time: Optional[str] = None) -> str:
     """
-    Common triggers: "create a meeting", "schedule a meeting", "set up a video call", "start a video conference",
-    "create a video meeting", "set up a meet", "schedule video call"
-
-    Creates a Google Meet video conference meeting. If start_time is provided, schedules the meeting
-    for that time. Otherwise, creates an instant meeting that can be joined immediately.
-
+    🎥 Video Meeting Creator
+    
+    Instantly set up professional video conferences with Google Meet!
+    
+    Features:
+    - ⚡ Quick instant meetings
+    - 📅 Scheduled future meetings
+    - 🔗 Shareable meeting links
+    - 📨 Calendar integration
+    
+    Use when you need to:
+    - 👥 Host team meetings
+    - 🤝 Meet with clients
+    - 🌐 Set up remote calls
+    - 📞 Start quick video chats
+    
     Args:
-        title: Title of the meeting (default: "Instant Meeting")
-        start_time: Optional start time as a string (natural language, 24-hour, timezone-aware).
-                   If None, creates an instant meeting.
+        title: Meeting name (default: "Instant Meeting")
+               Make it descriptive for participants!
+        start_time: When to schedule the meeting (optional)
+                   - Leave empty for instant meetings
+                   - Use natural language like "tomorrow 2pm"
+                   
     Returns:
-        String containing the Google Meet link and calendar event details.
+        Everything you need:
+        - 🔗 Google Meet link
+        - 📅 Calendar event details
+        - ⏰ Scheduled time (if applicable)
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)
@@ -586,17 +663,30 @@ def create_instant_meeting(title: str = "Instant Meeting", start_time: Optional[
 
 def join_next_meeting() -> str:
     """
-    Finds the next scheduled video conference meetings from your calendar and provides
-    the join links. Use this function to find upcoming meetings you can join.
+    🎯 Next Meeting Finder
     
-    Common triggers: "what's my next meeting", "upcoming meetings", "join next call",
-    "find next video conference", "show my meetings"
+    Never miss a video call! Quickly locate your upcoming video meetings
+    with their join links.
     
-    This function is specifically for finding video conference meetings. For general calendar
-    events, use list_calendar_events() instead.
+    Perfect for:
+    - 🏃‍♂️ Quick meeting access
+    - 📱 One-click joining
+    - 🗓️ Video call schedule check
+    - ⏰ Meeting time verification
+    
+    Smart Features:
+    - Shows only video meetings
+    - Includes instant join links
+    - Lists meeting times & titles
+    - Sorts by schedule
+    
+    Pro Tip: For regular calendar events, use list_calendar_events() instead!
     
     Returns:
-        String containing the upcoming video meetings with their titles, times, and join links.
+        Your upcoming video meetings with:
+        - ⏱️ Start times
+        - 📝 Meeting titles
+        - 🔗 Join links
     """
     creds = get_google_creds()
     service = build("calendar", "v3", credentials=creds)

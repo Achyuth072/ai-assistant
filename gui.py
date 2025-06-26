@@ -252,11 +252,13 @@ class AIAssistantGUI(ctk.CTk):
         self.append_to_chat("You", user_input)
         
         # Show text-based loading indicator
-        self.loading_dots = 1
+        self.loading_dots = 0  # Start with no dots
+        self.loading_active = True
         self.current_chat.configure(state="normal")
-        self.current_chat.insert("end", "Assistant is thinking...")
+        self.current_chat.insert("end", "Assistant is thinking")  # Start without dots
+        self.loading_start_pos = self.current_chat.index("end-1c linestart")
         self.current_chat.configure(state="disabled")
-        self._animate_loading()
+        self.after(100, self._animate_loading)  # Start animation quickly
         
         # Start async response handling
         self.after(50, lambda: self.get_ai_response(user_input))
@@ -267,19 +269,31 @@ class AIAssistantGUI(ctk.CTk):
             response = self.chat.send_message(user_input)
             
             # Remove loading indicator and show response
+            # Stop animation and clean up
+            self.loading_active = False
             self.current_chat.configure(state="normal")
-            self.current_chat.delete("end-3l", "end-1l")
-            if hasattr(self, 'loading_dots'):
-                self.current_chat.delete(self.loading_dots)
+            if hasattr(self, 'loading_start_pos'):
+                try:
+                    # Delete the entire "Assistant is thinking..." line
+                    self.current_chat.delete(self.loading_start_pos, "end-1c")
+                except Exception:
+                    pass
+                delattr(self, 'loading_start_pos')
             self.current_chat.configure(state="disabled")
             
             self.append_to_chat("Assistant", response.text)
         except Exception as e:
             # Remove loading indicator and show error
+            # Stop animation and clean up on error
+            self.loading_active = False
             self.current_chat.configure(state="normal")
-            self.current_chat.delete("end-3l", "end-1l")
-            if hasattr(self, 'loading_dots'):
-                self.current_chat.delete(self.loading_dots)
+            if hasattr(self, 'loading_start_pos'):
+                try:
+                    # Delete the entire "Assistant is thinking..." line
+                    self.current_chat.delete(self.loading_start_pos, "end-1c")
+                except Exception:
+                    pass
+                delattr(self, 'loading_start_pos')
             self.current_chat.configure(state="disabled")
             
             self.append_to_chat("System", f"Error: {str(e)}")
@@ -482,15 +496,20 @@ class AIAssistantGUI(ctk.CTk):
     
     def _animate_loading(self):
         """Animate loading dots"""
-        if not hasattr(self, 'loading_dots'):
+        if not hasattr(self, 'loading_active') or not self.loading_active:
             return
+
+        try:
+            self.current_chat.configure(state="normal")
+            # Delete existing text and dots
+            self.current_chat.delete(self.loading_start_pos, "end-1c")
+            # Add text with new dots
+            self.loading_dots = (self.loading_dots + 1) % 4  # 0-3 for proper dot animation
+            dots = "." * (self.loading_dots if self.loading_dots > 0 else 3)  # Show 3 dots when count is 0
+            self.current_chat.insert(self.loading_start_pos, f"Assistant is thinking{dots}")
+            self.current_chat.configure(state="disabled")
             
-        self.current_chat.configure(state="normal")
-        self.current_chat.delete("end-1l linestart", "end-1c")
-        
-        dots = "." * self.loading_dots
-        self.current_chat.insert("end", f"Assistant is thinking{dots}")
-        
-        self.loading_dots = self.loading_dots + 1 if self.loading_dots < 3 else 1
-        self.current_chat.configure(state="disabled")
-        self.after(500, self._animate_loading)
+            if self.loading_active:
+                self.after(300, self._animate_loading)  # Faster animation
+        except Exception:
+            self.loading_active = False

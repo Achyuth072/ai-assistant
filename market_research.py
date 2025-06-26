@@ -5,7 +5,12 @@ from bs4 import BeautifulSoup
 import time
 
 def _google_search_urls(query: str, num_results: int = 5) -> list[str]:
-    """Internal helper to search Google and return top URLs."""
+    """
+    🔍 Web Search Helper
+    
+    Searches Google for relevant content and returns top quality URLs.
+    Includes smart rate limiting and error handling.
+    """
     try:
         urls = [str(result) for result in search(query, num_results=num_results, sleep_interval=2)]
         return urls
@@ -14,7 +19,16 @@ def _google_search_urls(query: str, num_results: int = 5) -> list[str]:
         return []
 
 def _browse_and_clean_pages(urls: list[str]) -> tuple[list[str], list[str]]:
-    """Internal helper to browse a list of URLs and return their cleaned, quality-filtered text content."""
+    """
+    🌐 Smart Web Content Extractor
+    
+    Intelligently browses URLs and extracts clean, high-quality content:
+    - ✨ Removes ads and clutter
+    - 🔄 Handles duplicates
+    - 📊 Quality filtering
+    - ⚡ Optimized loading
+    - 🛡️ Error handling
+    """
     extracted_texts = []
     successful_urls = []
     seen_content_hashes = set()  # For deduplication
@@ -25,7 +39,7 @@ def _browse_and_clean_pages(urls: list[str]) -> tuple[list[str], list[str]]:
     
     for url in urls:
         try:
-            print(f"Browsing: {url}")
+            print(f"📑 Analyzing: {url}")
             
             # Implement exponential backoff for retries
             for attempt in range(3):
@@ -62,13 +76,13 @@ def _browse_and_clean_pages(urls: list[str]) -> tuple[list[str], list[str]]:
             
             # Skip if content is too short or likely not meaningful
             if len(text.split()) < 100:
-                print(f"Skipping {url}: Content too short or low quality")
+                print(f"⏩ Skipping {url}: Content too short or low quality")
                 continue
             
             # Check for duplicate content
             content_hash = hash(text)
             if content_hash in seen_content_hashes:
-                print(f"Skipping {url}: Duplicate content detected")
+                print(f"🔄 Skipping {url}: Duplicate content detected")
                 continue
             seen_content_hashes.add(content_hash)
             
@@ -79,14 +93,22 @@ def _browse_and_clean_pages(urls: list[str]) -> tuple[list[str], list[str]]:
             time.sleep(1.5)  # Increased sleep interval for politeness
             
         except Exception as e:
-            print(f"Failed to retrieve content from {url}: {e}")
+            print(f"❌ Failed to retrieve content from {url}: {e}")
             
     return successful_urls, extracted_texts
 
 from google_services import generate_gemini_summary
 
 def _evaluate_source_credibility(url: str) -> float:
-    """Evaluates source credibility based on domain and URL characteristics."""
+    """
+    ⭐ Source Credibility Analyzer
+    
+    Calculates trustworthiness scores for information sources using:
+    - 🏛️ Domain reputation
+    - 🎓 Educational/Government status
+    - 📰 Professional news sources
+    - 📊 URL structure quality
+    """
     credibility_score = 1.0
     
     # Prefer established domains
@@ -109,7 +131,15 @@ def _evaluate_source_credibility(url: str) -> float:
     return credibility_score
 
 def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
-    """Generates a coherent summary combining insights from all sources using Gemini AI."""
+    """
+    🤖 AI Research Synthesizer
+    
+    Creates an intelligent, weighted summary from multiple sources:
+    - 🎯 Prioritizes credible sources
+    - 🔄 Combines multiple perspectives
+    - 📊 Adjusts for source quality
+    - 🎨 Creates readable output
+    """
     if not urls or not texts:
         return "No valid content to summarize."
     
@@ -144,44 +174,69 @@ def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
         
         # Format final summary with credibility-weighted sources
         summary_lines = [
-            "Market Research Summary (AI-generated from weighted sources):",
+            "📊 Market Research Insights",
+            "══════════════════════",
             "",
+            "🤖 AI-Generated Analysis:",
+            "─────────────────────",
             ai_summary,
             "",
-            "Sources (by credibility):"
+            "📚 Sources by Credibility Rating:",
+            "────────────────────────────"
         ]
         
         # Sort sources by credibility score
         credible_sources = sorted(zip(urls, credibility_scores), key=lambda x: x[1], reverse=True)
         for i, (url, score) in enumerate(credible_sources, 1):
-            summary_lines.append(f"{i}. {url} (credibility: {score:.2f})")
+            # Add star rating based on credibility score
+            stars = "⭐" * min(5, int(score * 2.5))
+            summary_lines.append(f"{i}. {url}")
+            summary_lines.append(f"   Rating: {stars} ({score:.2f})")
         
         return "\n".join(summary_lines)
         
     except Exception as e:
         print(f"Gemini summarization failed: {e}")
         return (
-            f"Market Research Summary (Fallback):\n\n"
-            f"Analyzed {len(urls)} sources but AI summarization failed.\n"
-            f"Sources:\n" + "\n".join(f"{i}. {url}" for i, url in enumerate(urls, 1))
+            "⚠️ Market Research Summary (Limited)\n"
+            "══════════════════════════════\n\n"
+            f"📚 Analyzed {len(urls)} sources but couldn't generate AI summary.\n"
+            f"🔍 Raw Sources:\n" +
+            "\n".join(f"{i}. {url}" for i, url in enumerate(urls, 1))
         )
 
 def conduct_market_research(topic: str) -> str:
     """
-    Performs market research on a given topic by searching for relevant articles,
-    reading their content, and returning the combined text for summarization.
-    """
-    print(f"Starting market research for: {topic}...")
+    📊 Automated Market Research Assistant
     
-    # 1. Search
+    Conducts comprehensive market research through:
+    - 🔍 Intelligent web searching
+    - 📚 Content analysis
+    - ⭐ Source evaluation
+    - 🤖 AI-powered summarization
+    
+    Perfect for:
+    - 📈 Market trend analysis
+    - 🎯 Competitor research
+    - 🌐 Industry insights
+    - 💡 Innovation tracking
+    """
+    print(f"\n🔍 Starting Market Research")
+    print("════════════════════════")
+    print(f"📊 Topic: {topic}")
+    print("\n🔄 Phase 1: Gathering Sources...")
     urls_to_browse = _google_search_urls(f"market research and trends for {topic}")
     if not urls_to_browse:
-        return "Could not find any relevant articles for the topic."
+        return "❌ Could not find any relevant articles. Please try a different search term or check your internet connection."
         
     # 2. Browse & Clean
+    print("\n🔄 Phase 2: Analyzing Content...")
     successful_urls, extracted_texts = _browse_and_clean_pages(urls_to_browse)
     if not successful_urls:
-        return "Found articles, but could not extract any readable content."
+        return "📑 Found articles, but couldn't extract meaningful content. This might be due to website restrictions or non-standard formatting."
         
     # 3. Generate and return combined summary
-    return _generate_combined_summary(successful_urls, extracted_texts)
+    print("\n🔄 Phase 3: Generating Insights...")
+    result = _generate_combined_summary(successful_urls, extracted_texts)
+    print("\n✅ Research Complete!\n")
+    return result
