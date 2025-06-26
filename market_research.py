@@ -174,15 +174,12 @@ def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
         
         # Format final summary with credibility-weighted sources
         summary_lines = [
-            "📊 Market Research Insights",
-            "══════════════════════",
+            "# 📊 Market Research Insights",
             "",
-            "🤖 AI-Generated Analysis:",
-            "─────────────────────",
+            "## 🤖 AI-Generated Analysis",
             ai_summary,
             "",
-            "📚 Sources by Credibility Rating:",
-            "────────────────────────────"
+            "## 📚 Sources by Credibility Rating"
         ]
         
         # Sort sources by credibility score
@@ -190,18 +187,17 @@ def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
         for i, (url, score) in enumerate(credible_sources, 1):
             # Add star rating based on credibility score
             stars = "⭐" * min(5, int(score * 2.5))
-            summary_lines.append(f"{i}. {url}")
-            summary_lines.append(f"   Rating: {stars} ({score:.2f})")
+            summary_lines.append(f"{i}. [{url}]({url})")
+            summary_lines.append(f"   - Rating: {stars} ({score:.2f})")
         
         return "\n".join(summary_lines)
         
     except Exception as e:
         print(f"Gemini summarization failed: {e}")
         return (
-            "⚠️ Market Research Summary (Limited)\n"
-            "══════════════════════════════\n\n"
-            f"📚 Analyzed {len(urls)} sources but couldn't generate AI summary.\n"
-            f"🔍 Raw Sources:\n" +
+            "# ⚠️ Market Research Summary (Limited)\n\n"
+            f"📚 Analyzed {len(urls)} sources but couldn't generate AI summary.\n\n"
+            "## 🔍 Raw Sources\n" +
             "\n".join(f"{i}. {url}" for i, url in enumerate(urls, 1))
         )
 

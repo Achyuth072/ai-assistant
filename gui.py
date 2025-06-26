@@ -4,6 +4,7 @@ import time
 from typing import List, Callable, Dict
 from easing_functions import QuadEaseInOut
 from google.generativeai.generative_models import GenerativeModel
+import markdown2
 
 class AIAssistantGUI(ctk.CTk):
     """Main GUI class for the AI Assistant application."""
@@ -144,9 +145,9 @@ class AIAssistantGUI(ctk.CTk):
         self.chat_tab.grid_rowconfigure(0, weight=1)
         self.chat_tab.grid_columnconfigure(0, weight=1)
         
-        # Create chat display in chat tab
+        # Create chat display in chat tab with markdown support
         self.chat_display = ctk.CTkTextbox(
-            self.chat_tab, 
+            self.chat_tab,
             wrap="word",
             fg_color=("white", "#252526"),
             border_color=("#E9ECEF", "#3A3F45"),
@@ -156,6 +157,9 @@ class AIAssistantGUI(ctk.CTk):
         )
         self.chat_display.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         self.chat_display.configure(state="disabled")
+        
+        # Configure markdown text tags
+        self._configure_markdown_tags(self.chat_display)
 
         # Set current chat display reference
         self.current_chat = self.chat_display
@@ -214,11 +218,110 @@ class AIAssistantGUI(ctk.CTk):
         """
         self.append_to_chat("Assistant", welcome_msg.strip())
         
+    def _configure_markdown_tags(self, text_widget):
+        """Configure text tags for markdown elements using the underlying tkinter Text widget"""
+        # Access the underlying tkinter Text widget
+        tk_text = text_widget._textbox
+
+        # Configure tags on the tkinter Text widget
+        tk_text.tag_configure("bold", font=("Segoe UI", 13, "bold"))
+        tk_text.tag_configure("italic", font=("Segoe UI", 13, "italic"))
+        tk_text.tag_configure("code", font=("Cascadia Code", 12),
+                          background="#F0F0F0" if ctk.get_appearance_mode() == "Light" else "#2D2D2D",
+                          spacing1=5, spacing3=5)
+        tk_text.tag_configure("h1", font=("Segoe UI", 18, "bold"), spacing1=10, spacing3=10)
+        tk_text.tag_configure("h2", font=("Segoe UI", 16, "bold"), spacing1=8, spacing3=8)
+        tk_text.tag_configure("h3", font=("Segoe UI", 14, "bold"), spacing1=6, spacing3=6)
+        tk_text.tag_configure("bullet", lmargin1=20, lmargin2=40)
+        # Set link color based on appearance mode
+        link_color = "#2B7DE9" if ctk.get_appearance_mode() == "Light" else "#4DABF7"
+        tk_text.tag_configure("link", foreground=link_color, underline=True)
+        tk_text.tag_configure("sender", font=("Segoe UI", 13, "bold"))
+
+    def _apply_markdown_formatting(self, text_widget, content):
+        """Apply markdown formatting by parsing the content and applying tags"""
+        # Access the underlying tkinter Text widget
+        tk_text = text_widget._textbox
+        
+        lines = content.split("\n")
+        in_code_block = False
+        code_block = []
+
+        for line in lines:
+            # Handle code blocks
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+                if not in_code_block and code_block:
+                    tk_text.insert("end", "\n".join(code_block) + "\n", "code")
+                    code_block = []
+                continue
+            
+            if in_code_block:
+                code_block.append(line)
+                continue
+
+            # Handle headings
+            if line.startswith("# "):
+                tk_text.insert("end", line[2:] + "\n", "h1")
+            elif line.startswith("## "):
+                tk_text.insert("end", line[3:] + "\n", "h2")
+            elif line.startswith("### "):
+                tk_text.insert("end", line[4:] + "\n", "h3")
+            # Handle bullet points
+            elif line.strip().startswith("* ") or line.strip().startswith("- "):
+                tk_text.insert("end", "  • " + line.strip()[2:] + "\n", "bullet")
+            # Handle inline formatting and regular text
+            else:
+                parts = self._parse_inline_formatting(line)
+                for text, tags in parts:
+                    tk_text.insert("end", text, tags or ())
+                tk_text.insert("end", "\n")
+
+    def _parse_inline_formatting(self, text):
+        """Parse inline markdown formatting and return list of (text, tags)"""
+        parts = []
+        current_text = ""
+        i = 0
+        
+        while i < len(text):
+            if text[i:i+2] == "**" and i+2 < len(text):  # Bold
+                if current_text:
+                    parts.append((current_text, None))
+                    current_text = ""
+                end = text.find("**", i+2)
+                if end != -1:
+                    parts.append((text[i+2:end], "bold"))
+                    i = end + 2
+                    continue
+            elif text[i:i+1] == "`":  # Inline code
+                if current_text:
+                    parts.append((current_text, None))
+                    current_text = ""
+                end = text.find("`", i+1)
+                if end != -1:
+                    parts.append((text[i+1:end], "code"))
+                    i = end + 1
+                    continue
+            current_text += text[i]
+            i += 1
+            
+        if current_text:
+            parts.append((current_text, None))
+        
+        return parts
+
     def append_to_chat(self, sender, message):
-        """Appends a message to the current chat display."""
-        # Update current chat display
+        """Appends a message to the current chat display with markdown rendering."""
         self.current_chat.configure(state="normal")
-        self.current_chat.insert("end", f"{sender}: {message}\n\n")
+        
+        # Add sender with special formatting
+        self.current_chat.insert("end", f"{sender}:", "sender")
+        self.current_chat.insert("end", "\n")
+        
+        # Apply markdown formatting
+        self._apply_markdown_formatting(self.current_chat, message)
+        self.current_chat.insert("end", "\n")
+        
         self.current_chat.configure(state="disabled")
         self.current_chat.see("end")
         

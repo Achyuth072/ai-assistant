@@ -237,12 +237,12 @@ def list_calendar_events(max_results: int = 10) -> str:
     if not events:
         return "📅 No upcoming events found on your calendar."
     
-    output = ["📅 Upcoming Events", "═══════════════"]
+    output = ["# 📅 Upcoming Events"]
     for event in events:
         start_dt = parser.parse(event["start"].get("dateTime", event["start"].get("date")))
         formatted_time = start_dt.strftime("%I:%M %p on %B %d")  # e.g. "2:30 PM on June 21"
-        output.append(f"• {formatted_time}")
-        output.append(f"  └─ {event['summary']}")
+        output.append(f"- **{formatted_time}**")
+        output.append(f"  - {event['summary']}")
     
     return "\n".join(output)
 
@@ -298,7 +298,7 @@ def delete_calendar_event(title_or_id: str) -> str:
                 return f"✅ Event '{title_or_id}' deleted successfully!"
             
             # Multiple matches found - list them for selection
-            event_list = ["🔍 Multiple matching events found:", "══════════════════════════"]
+            event_list = ["# 🔍 Multiple matching events found"]
             for i, event in enumerate(matching_events, 1):
                 start = event["start"].get("dateTime", event["start"].get("date"))
                 event_list.append(f"{i}. {start} - {event['summary']} (ID: {event['id']})")
@@ -373,7 +373,7 @@ def search_emails(query: str, max_results: int = 5) -> str:
     if not messages:
         return f"🔍 No emails found matching: {query}"
     
-    output = [f"📧 Emails matching '{query}':", "═══════════════════════"]
+    output = [f"# 📧 Emails matching '{query}'"]
     for message in messages:
         msg = (
             service.users()
