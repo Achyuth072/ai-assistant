@@ -232,13 +232,15 @@ class AIAssistantGUI(ctk.CTk):
         tk_text.tag_configure("h1", font=("Segoe UI", 18, "bold"), spacing1=10, spacing3=10)
         tk_text.tag_configure("h2", font=("Segoe UI", 16, "bold"), spacing1=8, spacing3=8)
         tk_text.tag_configure("h3", font=("Segoe UI", 14, "bold"), spacing1=6, spacing3=6)
-        tk_text.tag_configure("bullet", lmargin1=20, lmargin2=40)
+        tk_text.tag_configure("bullet", spacing1=5, spacing3=5)
         # Set link color based on appearance mode
         link_color = "#2B7DE9" if ctk.get_appearance_mode() == "Light" else "#4DABF7"
         tk_text.tag_configure("link", foreground=link_color, underline=True)
         tk_text.tag_configure("sender", font=("Segoe UI", 13, "bold"))
+        tk_text.tag_configure("right_align", justify="right")
+        tk_text.tag_configure("left_align", justify="left")
 
-    def _apply_markdown_formatting(self, text_widget, content):
+    def _apply_markdown_formatting(self, text_widget, content, align_tag="left_align"):
         """Apply markdown formatting by parsing the content and applying tags"""
         # Access the underlying tkinter Text widget
         tk_text = text_widget._textbox
@@ -247,12 +249,17 @@ class AIAssistantGUI(ctk.CTk):
         in_code_block = False
         code_block = []
 
+        def insert_with_tags(text, *tags):
+            """Helper to insert text with both formatting and alignment tags"""
+            all_tags = [t for t in tags if t] + [align_tag]
+            tk_text.insert("end", text, tuple(all_tags))
+
         for line in lines:
             # Handle code blocks
             if line.strip().startswith("```"):
                 in_code_block = not in_code_block
                 if not in_code_block and code_block:
-                    tk_text.insert("end", "\n".join(code_block) + "\n", "code")
+                    insert_with_tags("\n".join(code_block) + "\n", "code")
                     code_block = []
                 continue
             
@@ -262,20 +269,20 @@ class AIAssistantGUI(ctk.CTk):
 
             # Handle headings
             if line.startswith("# "):
-                tk_text.insert("end", line[2:] + "\n", "h1")
+                insert_with_tags(line[2:] + "\n", "h1")
             elif line.startswith("## "):
-                tk_text.insert("end", line[3:] + "\n", "h2")
+                insert_with_tags(line[3:] + "\n", "h2")
             elif line.startswith("### "):
-                tk_text.insert("end", line[4:] + "\n", "h3")
+                insert_with_tags(line[4:] + "\n", "h3")
             # Handle bullet points
             elif line.strip().startswith("* ") or line.strip().startswith("- "):
-                tk_text.insert("end", "  • " + line.strip()[2:] + "\n", "bullet")
+                insert_with_tags("  • " + line.strip()[2:] + "\n", "bullet")
             # Handle inline formatting and regular text
             else:
                 parts = self._parse_inline_formatting(line)
                 for text, tags in parts:
-                    tk_text.insert("end", text, tags or ())
-                tk_text.insert("end", "\n")
+                    insert_with_tags(text, tags)
+                insert_with_tags("\n")
 
     def _parse_inline_formatting(self, text):
         """Parse inline markdown formatting and return list of (text, tags)"""
@@ -315,12 +322,15 @@ class AIAssistantGUI(ctk.CTk):
         self.current_chat.configure(state="normal")
         
         # Add sender with special formatting
-        self.current_chat.insert("end", f"{sender}:", "sender")
-        self.current_chat.insert("end", "\n")
+        align_tag = "right_align" if sender in ["You", "User"] else "left_align"
+        # Add padding for visual alignment
+        padding = "    " if sender in ["You", "User"] else ""
+        self.current_chat.insert("end", f"{padding}{sender}:", ("sender", align_tag))
+        self.current_chat.insert("end", "\n", align_tag)
         
-        # Apply markdown formatting
-        self._apply_markdown_formatting(self.current_chat, message)
-        self.current_chat.insert("end", "\n")
+        # Apply markdown formatting with the correct alignment
+        self._apply_markdown_formatting(self.current_chat, message, align_tag)
+        self.current_chat.insert("end", "\n", align_tag)
         
         self.current_chat.configure(state="disabled")
         self.current_chat.see("end")
@@ -358,7 +368,7 @@ class AIAssistantGUI(ctk.CTk):
         self.loading_dots = 0  # Start with no dots
         self.loading_active = True
         self.current_chat.configure(state="normal")
-        self.current_chat.insert("end", "Assistant is thinking")  # Start without dots
+        self.current_chat.insert("end", "Assistant is thinking", "left_align")  # Start without dots
         self.loading_start_pos = self.current_chat.index("end-1c linestart")
         self.current_chat.configure(state="disabled")
         self.after(100, self._animate_loading)  # Start animation quickly
