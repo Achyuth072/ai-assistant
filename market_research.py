@@ -222,9 +222,12 @@ def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
         # Sort sources by credibility score
         credible_sources = sorted(zip(urls, credibility_scores), key=lambda x: x[1], reverse=True)
         for i, (url, score) in enumerate(credible_sources, 1):
+            # Clean up URL to prevent line breaks
+            cleaned_url = url.replace('\n', '').replace('\r', '')
             # Add star rating based on credibility score
             stars = "⭐" * min(5, int(score * 2.5))
-            summary_lines.append(f"* [{url}]({url}) - Rating: {stars} ({score:.2f})")
+            # Append formatted string with a simple hyphen and no bullet point
+            summary_lines.append(f"[{cleaned_url}]({cleaned_url}) - Rating: {stars} ({score:.2f})")
         
         return "\n".join(summary_lines)
         
