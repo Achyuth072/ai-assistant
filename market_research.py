@@ -4,19 +4,57 @@ import requests
 from bs4 import BeautifulSoup
 import time
 
-def _google_search_urls(query: str, num_results: int = 5) -> list[str]:
+def _google_search_urls(topic: str, num_results: int = 10) -> list[str]:
     """
-    🔍 Web Search Helper
+    🔍 Enhanced Web Search Helper
     
-    Searches Google for relevant content and returns top quality URLs.
-    Includes smart rate limiting and error handling.
+    Generates diverse search queries for a topic and returns aggregated, unique URLs.
+    Features:
+    - 🎯 Multiple query strategies
+    - 🔄 Duplicate removal
+    - ⚡ Smart rate limiting
+    - 🛡️ Error handling
     """
-    try:
-        urls = [str(result) for result in search(query, num_results=num_results, sleep_interval=2)]
-        return urls
-    except Exception as e:
-        print(f"Google search failed: {e}")
-        return []
+    # Helper function to count words
+    def count_words(text: str) -> int:
+        return len(text.split())
+    
+    # Determine query strategy based on topic length
+    word_count = count_words(topic)
+    is_long_topic = word_count >= 4
+    
+    # Generate search queries based on topic length
+    if is_long_topic:
+        # For specific long-tail topics, use simpler variations
+        search_queries = [
+            topic,  # Use the topic as-is
+            f"{topic} analysis",
+            f"{topic} news",
+            f"{topic} discussions"
+        ]
+    else:
+        # For shorter topics, use more diverse query variations
+        search_queries = [
+            f"{topic} market trends",
+            f"venture capital funding for {topic}",
+            f"innovative applications in {topic}",
+            f"academic research papers on {topic}",
+            f"challenges of adoption for {topic}"
+        ]
+    
+    all_urls = set()  # Use set for automatic deduplication
+    
+    for query in search_queries:
+        try:
+            print(f"🔍 Searching: {query}")
+            urls = [str(result) for result in search(query, num_results=num_results, sleep_interval=2)]
+            all_urls.update(urls)  # Add new URLs to set
+            time.sleep(2)  # Be polite between queries
+        except Exception as e:
+            print(f"Google search failed for query '{query}': {e}")
+            continue
+    
+    return list(all_urls)
 
 def _browse_and_clean_pages(urls: list[str]) -> tuple[list[str], list[str]]:
     """
@@ -134,45 +172,44 @@ def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
     """
     🤖 AI Research Synthesizer
     
-    Creates an intelligent, weighted summary from multiple sources:
-    - 🎯 Prioritizes credible sources
-    - 🔄 Combines multiple perspectives
-    - 📊 Adjusts for source quality
-    - 🎨 Creates readable output
+    Creates a comprehensive summary using map-reduce strategy:
+    - 🗺️ Map: Generate individual summaries for each source
+    - 🔄 Reduce: Combine summaries into cohesive analysis
+    - ⭐ Sort sources by credibility
+    - 📊 Present structured insights
     """
     if not urls or not texts:
         return "No valid content to summarize."
     
     try:
-        # Weight sources by credibility
+        # Calculate credibility scores (only used for source sorting)
         credibility_scores = [_evaluate_source_credibility(url) for url in urls]
         
-        # Normalize weights
-        total_score = sum(credibility_scores)
-        weights = [score/total_score for score in credibility_scores]
+        # MAP STEP: Generate individual summaries
+        individual_summaries = []
+        for text in texts:
+            try:
+                summary = generate_gemini_summary(
+                    text=text,
+                    prompt_type="summarize_article",
+                    temperature=0.5
+                )
+                individual_summaries.append(summary)
+            except Exception as e:
+                print(f"⚠️ Skipping summary for one source due to an API error: {e}")
+                continue
         
-        # Combine text with weighted importance
-        chunks = []
-        for text, weight in zip(texts, weights):
-            # Select most relevant portions based on weight
-            words = text.split()
-            chunk_size = int(min(2000, len(words) * weight))  # Limit chunk size
-            chunk = " ".join(words[:chunk_size])
-            chunks.append(chunk)
+        # REDUCE STEP: Combine individual summaries
+        combined_summaries = "\n\n---\n\n".join(individual_summaries)
         
-        combined_text = "\n\n---\n\n".join(chunks)
-        
-        # Adjust temperature based on source diversity
-        temperature = min(0.7, 0.5 + (len(set(urls)) / 10))  # More sources = slightly higher temperature
-        
-        # Get AI-generated summary
+        # Generate final synthesized summary with hierarchical structure
         ai_summary = generate_gemini_summary(
-            text=combined_text,
+            text=combined_summaries,
             prompt_type="market_research",
-            temperature=temperature
+            temperature=0.7
         )
         
-        # Format final summary with credibility-weighted sources
+        # Format final summary with credibility-sorted sources
         summary_lines = [
             "# 📊 Market Research Insights",
             "",
@@ -187,8 +224,7 @@ def _generate_combined_summary(urls: list[str], texts: list[str]) -> str:
         for i, (url, score) in enumerate(credible_sources, 1):
             # Add star rating based on credibility score
             stars = "⭐" * min(5, int(score * 2.5))
-            summary_lines.append(f"{i}. [{url}]({url})")
-            summary_lines.append(f"   - Rating: {stars} ({score:.2f})")
+            summary_lines.append(f"* [{url}]({url}) - Rating: {stars} ({score:.2f})")
         
         return "\n".join(summary_lines)
         
@@ -221,7 +257,7 @@ def conduct_market_research(topic: str) -> str:
     print("════════════════════════")
     print(f"📊 Topic: {topic}")
     print("\n🔄 Phase 1: Gathering Sources...")
-    urls_to_browse = _google_search_urls(f"market research and trends for {topic}")
+    urls_to_browse = _google_search_urls(topic)
     if not urls_to_browse:
         return "❌ Could not find any relevant articles. Please try a different search term or check your internet connection."
         

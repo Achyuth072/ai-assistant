@@ -83,6 +83,13 @@ def generate_gemini_summary(text: str, prompt_type: str = "email", model_name: s
                 "top_k": 20,
                 "max_output_tokens": 2048,
                 "candidate_count": 1
+            },
+            "summarize_article": {
+                "temperature": temperature if temperature is not None else 0.5,
+                "top_p": 0.85,
+                "top_k": 20,
+                "max_output_tokens": 2048,
+                "candidate_count": 1
             }
         }
         return configs.get(prompt_type, configs["email"])
@@ -139,56 +146,18 @@ def generate_gemini_summary(text: str, prompt_type: str = "email", model_name: s
         Property Data to Analyze:
         {text}
         """
+    elif prompt_type == "summarize_article":
+        prompt = f"""
+        Summarize the following article for a market research report, focusing on key data, trends, and insights.
+
+        Article Content:
+        {text}
+        """
     elif prompt_type == "market_research":
         prompt = f"""
-        Generate a comprehensive market research summary from the following content.
-        
-        Instructions for Analysis:
-        
-        1. Industry Overview (25% weight):
-           - Current market size with specific numbers/ranges
-           - Year-over-year growth rates and projections
-           - Key market segments with size distribution
-           - Regional market dynamics and growth variations
-           - Industry maturity stage assessment
-        
-        2. Competitive Analysis (25% weight):
-           - Top 3-5 players with market share data
-           - Competitive advantage analysis
-           - Recent strategic moves and acquisitions
-           - Barriers to entry evaluation
-           - SWOT analysis of major players
-        
-        3. Consumer Insights (20% weight):
-           - Detailed demographic profiles
-           - Psychographic characteristics
-           - Purchase behavior patterns
-           - Customer journey mapping
-           - Price sensitivity analysis
-        
-        4. Market Dynamics (15% weight):
-           - Key growth drivers and inhibitors
-           - Regulatory impact assessment
-           - Supply chain analysis
-           - Cost structure trends
-           - Technology adoption rates
-        
-        5. Future Outlook (15% weight):
-           - 3-5 year market projections
-           - Emerging technology impacts
-           - Potential disruption factors
-           - Investment opportunity areas
-           - Risk mitigation strategies
-        
-        Output Format Requirements:
-        - Start with an executive summary (2-3 key findings)
-        - Use bullet points for clarity
-        - Include quantitative data where available
-        - Highlight confidence levels for projections
-        - Note any data gaps or uncertainties
-        - End with strategic recommendations
-        
-        Content to Analyze:
+        Synthesize the following market research summaries into a single, cohesive analysis. Structure the output for maximum readability using hierarchical indentation for main points, sub-points, and any sub-sub-points. Identify the main trends, challenges, and opportunities with clear headings.
+
+        Summaries to Synthesize:
         {text}
         """
     else:  # email summary
