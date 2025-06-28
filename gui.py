@@ -1,10 +1,64 @@
 import customtkinter as ctk
 import tkinter as tk
 import time
+import textwrap
 from typing import List, Callable, Dict
 from easing_functions import QuadEaseInOut
 from google.generativeai.generative_models import GenerativeModel
 import markdown2
+from html.parser import HTMLParser
+
+class MarkdownToTkinter(HTMLParser):
+    """HTML to Tkinter tag converter for markdown rendering"""
+    def __init__(self, text_widget, align_tag):
+        super().__init__()
+        self.text_widget = text_widget._textbox  # Get underlying tkinter widget
+        self.align_tag = align_tag
+        self.tag_stack = []
+        self.list_item_count = 0  # Track list items for proper bullet handling
+        
+        # Map HTML tags to tkinter tags
+        self.tag_map = {
+            'strong': 'bold',
+            'b': 'bold',
+            'em': 'italic',
+            'i': 'italic',
+            'code': 'code',
+            'pre': 'code',
+            'h1': 'h1',
+            'h2': 'h2',
+            'h3': 'h3',
+            'a': 'link',
+            'li': 'bullet'
+        }
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.tag_map:
+            self.tag_stack.append(self.tag_map[tag])
+
+    def handle_endtag(self, tag):
+        if tag in self.tag_map and self.tag_stack:
+            if self.tag_map[tag] in self.tag_stack:
+                self.tag_stack.remove(self.tag_map[tag])
+
+    def handle_data(self, data):
+        if not data.strip():  # Skip empty or whitespace-only data
+            return
+            
+        # Prepare tags for insertion
+        tags = tuple(self.tag_stack + [self.align_tag])
+        
+        # Handle list items with proper bullet points
+        if 'bullet' in self.tag_stack:
+            if not data.strip().startswith('•'):  # Only add bullet if not already present
+                data = f"  • {data.strip()}"
+        
+        # Insert the text with appropriate tags
+        self.text_widget.insert('end', data, tags)
+        
+        # Add newline after headers and list items
+        if any(tag in ('h1', 'h2', 'h3', 'bullet') for tag in self.tag_stack):
+            self.text_widget.insert('end', '\n', (self.align_tag,))
 
 class AIAssistantGUI(ctk.CTk):
     """Main GUI class for the AI Assistant application."""
@@ -216,7 +270,7 @@ class AIAssistantGUI(ctk.CTk):
 
         How can I assist you today?
         """
-        self.append_to_chat("Assistant", welcome_msg.strip())
+        self.append_to_chat("Assistant", textwrap.dedent(welcome_msg).strip())
         
     def _configure_markdown_tags(self, text_widget):
         """Configure text tags for markdown elements using the underlying tkinter Text widget"""
@@ -241,81 +295,18 @@ class AIAssistantGUI(ctk.CTk):
         tk_text.tag_configure("left_align", justify="left")
 
     def _apply_markdown_formatting(self, text_widget, content, align_tag="left_align"):
-        """Apply markdown formatting by parsing the content and applying tags"""
-        # Access the underlying tkinter Text widget
-        tk_text = text_widget._textbox
+        """Apply markdown formatting by converting to HTML and then to tkinter tags"""
+        # Convert markdown to HTML
+        html = markdown2.markdown(content, extras=['fenced-code-blocks', 'cuddled-lists'])
         
-        lines = content.split("\n")
-        in_code_block = False
-        code_block = []
-
-        def insert_with_tags(text, *tags):
-            """Helper to insert text with both formatting and alignment tags"""
-            all_tags = [t for t in tags if t] + [align_tag]
-            tk_text.insert("end", text, tuple(all_tags))
-
-        for line in lines:
-            # Handle code blocks
-            if line.strip().startswith("```"):
-                in_code_block = not in_code_block
-                if not in_code_block and code_block:
-                    insert_with_tags("\n".join(code_block) + "\n", "code")
-                    code_block = []
-                continue
-            
-            if in_code_block:
-                code_block.append(line)
-                continue
-
-            # Handle headings
-            if line.startswith("# "):
-                insert_with_tags(line[2:] + "\n", "h1")
-            elif line.startswith("## "):
-                insert_with_tags(line[3:] + "\n", "h2")
-            elif line.startswith("### "):
-                insert_with_tags(line[4:] + "\n", "h3")
-            # Handle bullet points
-            elif line.strip().startswith("* ") or line.strip().startswith("- "):
-                insert_with_tags("  • " + line.strip()[2:] + "\n", "bullet")
-            # Handle inline formatting and regular text
-            else:
-                parts = self._parse_inline_formatting(line)
-                for text, tags in parts:
-                    insert_with_tags(text, tags)
-                insert_with_tags("\n")
-
-    def _parse_inline_formatting(self, text):
-        """Parse inline markdown formatting and return list of (text, tags)"""
-        parts = []
-        current_text = ""
-        i = 0
+        # Replace some HTML elements for better formatting
+        html = html.replace('<p>', '').replace('</p>', '\n')
         
-        while i < len(text):
-            if text[i:i+2] == "**" and i+2 < len(text):  # Bold
-                if current_text:
-                    parts.append((current_text, None))
-                    current_text = ""
-                end = text.find("**", i+2)
-                if end != -1:
-                    parts.append((text[i+2:end], "bold"))
-                    i = end + 2
-                    continue
-            elif text[i:i+1] == "`":  # Inline code
-                if current_text:
-                    parts.append((current_text, None))
-                    current_text = ""
-                end = text.find("`", i+1)
-                if end != -1:
-                    parts.append((text[i+1:end], "code"))
-                    i = end + 1
-                    continue
-            current_text += text[i]
-            i += 1
-            
-        if current_text:
-            parts.append((current_text, None))
+        # Create parser instance
+        parser = MarkdownToTkinter(text_widget, align_tag)
         
-        return parts
+        # Feed HTML to parser
+        parser.feed(html)
 
     def append_to_chat(self, sender, message):
         """Appends a message to the current chat display with markdown rendering."""
