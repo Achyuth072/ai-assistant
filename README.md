@@ -4,53 +4,103 @@ A desktop AI Assistant application built with Python and CustomTkinter, designed
 
 ## Setup Instructions
 
-Follow these steps to set up and run the AI Assistant on your local machine.
+Follow these steps to set up and run the AI Assistant on your Mac or Windows machine.
 
 ### Prerequisites
 
-* **Python 3.x:** Ensure you have Python 3 installed. You can download it from [python.org](https://www.python.org/downloads/).
+#### For All Users
 
-### Installation
+* **Python 3.x**
+* **Git**
 
-1. **Clone the repository:**
+#### Mac Users
 
-    ```bash
-    git clone https://github.com/your-username/ai-assistant.git
-    cd ai-assistant
-    ```
+1. **Install Python**:
+   * Open Terminal (press ⌘ + Space, type "Terminal", then press Enter)
+   * Install Homebrew (if you don't have it):
 
-    (Note: Replace `https://github.com/your-username/ai-assistant.git` with the actual repository URL if available.)
+     ```bash
+     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+     ```
 
-2. **Install dependencies:**
-    Navigate to the project's root directory and install the required Python packages using pip:
+   * Install Python:
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+     ```bash
+     brew install python
+     ```
 
-### API Key Configuration
+   * Verify installation:
 
-This application uses the Google Gemini API. You need to obtain an API key and configure it:
+     ```bash
+     python3 --version
+     ```
 
-1. **Get a Gemini API Key:**
-    * Go to the [Google AI Studio](https://aistudio.google.com/app/apikey) and create a new API key.
+2. **Install Git**:
+   * If you installed Homebrew, run:
 
-2. **Create `config.py`:**
-    In the root directory of the project, create a new file named `config.py`.
+     ```bash
+     brew install git
+     ```
 
-3. **Add your API Key:**
-    Open `config.py` and add the following line, replacing `"YOUR_GEMINI_API_KEY"` with your actual API key:
+   * Alternatively, download from [git-scm.com](https://git-scm.com/download/mac)
 
-    ```python
-    GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
-    ```
+#### Windows Users
 
-## Running the Application
+1. **Install Python**:
+   * Download from [python.org](https://www.python.org/downloads/)
+   * During installation, check "Add Python to PATH"
 
-Once you have completed the setup, you can run the application:
+2. **Install Git**:
+   * Download Git for Windows from [git-scm.com](https://git-scm.com/download/win)
+   * Run the installer with default options
+   * Verify installation by running in Command Prompt:
+
+     ```bash
+     git --version
+     ```
+
+### 📥 Installation
+
+1. **Get the Code**:
+   * Open Terminal (Mac) or Command Prompt (Windows)
+   * Copy the code to your computer:
+
+     ```bash
+     git clone https://github.com/your-username/ai-assistant.git
+     ```
+
+   * Move into the project folder:
+
+     ```bash
+     cd ai-assistant
+     ```
+
+2. **Install Required Components**:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### 🔑 API Key Setup
+
+Our app uses Google's Gemini AI. Here's how to set it up:
+
+1. **Get Your Free API Key**:
+   * Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+   * Click "Create API Key" (you'll need a Google account)
+
+2. **Configure Your Key**:
+   * In the project folder, create a new file called `config.py`
+   * Open it and add this line (replace the text with your actual key):
+
+     ```python
+     GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
+     ```
+
+## 🏃 Running the App
+
+Start the AI Assistant with this simple command:
 
 ```bash
 python main.py
 ```
-
-This will launch the AI Assistant GUI.
