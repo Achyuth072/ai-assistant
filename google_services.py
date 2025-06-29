@@ -155,7 +155,7 @@ def generate_gemini_summary(text: str, prompt_type: str = "email", model_name: s
         """
     elif prompt_type == "market_research":
         prompt = f"""
-        Synthesize the following market research summaries into a single, cohesive analysis. Structure the output for maximum readability using hierarchical indentation for main points, sub-points, and any sub-sub-points. Identify the main trends, challenges, and opportunities with clear headings.
+        Synthesize the following market research summaries into a single, cohesive analysis. Structure the output using markdown headings (e.g., #, ##) and bullet points or numbered lists for main points and sub-points. Clearly identify the main trends, challenges, and opportunities.
 
         Summaries to Synthesize:
         {text}

@@ -280,9 +280,7 @@ class AIAssistantGUI(ctk.CTk):
         # Configure tags on the tkinter Text widget
         tk_text.tag_configure("bold", font=("Segoe UI", 13, "bold"))
         tk_text.tag_configure("italic", font=("Segoe UI", 13, "italic"))
-        tk_text.tag_configure("code", font=("Cascadia Code", 12),
-                          background="#F0F0F0" if ctk.get_appearance_mode() == "Light" else "#2D2D2D",
-                          spacing1=5, spacing3=5)
+        tk_text.tag_configure("code", font=("Cascadia Code", 12)) # Remove background and spacing
         tk_text.tag_configure("h1", font=("Segoe UI", 18, "bold"), spacing1=10, spacing3=10)
         tk_text.tag_configure("h2", font=("Segoe UI", 16, "bold"), spacing1=8, spacing3=8)
         tk_text.tag_configure("h3", font=("Segoe UI", 14, "bold"), spacing1=6, spacing3=6)
