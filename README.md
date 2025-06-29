@@ -59,7 +59,7 @@ Follow these steps to set up and run the AI Assistant on your Mac or Windows mac
      git --version
      ```
 
-### 📥 Installation
+### Installation
 
 1. **Get the Code**:
    * Open Terminal (Mac) or Command Prompt (Windows)
@@ -81,7 +81,7 @@ Follow these steps to set up and run the AI Assistant on your Mac or Windows mac
    pip install -r requirements.txt
    ```
 
-### 🔑 API Key Setup
+### API Key Setup
 
 Our app uses Google's Gemini AI. Here's how to set it up:
 
@@ -97,7 +97,7 @@ Our app uses Google's Gemini AI. Here's how to set it up:
      GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
      ```
 
-## 🏃 Running the App
+## Running the App
 
 Start the AI Assistant with this simple command:
 
